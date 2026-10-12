@@ -1,16 +1,16 @@
-# RushSeat — Architecture Overview
+# RushSeat — Tổng quan kiến trúc hệ thống
 
-## 1. Purpose
+## 1. Mục đích
 
-RushSeat is a backend system for high-concurrency flash sales and ticket reservations.
+RushSeat là hệ thống backend phục vụ việc bán vé trong các đợt mở bán có lưu lượng truy cập cao và quản lý quá trình đặt vé.
 
-The system must prevent overselling, maintain consistent inventory, handle duplicate requests, and release expired reservations correctly.
+Hệ thống cần ngăn chặn tình trạng bán vượt số vé hiện có (overselling), duy trì tính nhất quán của inventory, xử lý các request trùng lặp và giải phóng reservation hết hạn một cách chính xác.
 
-The initial implementation uses a modular monolith backed by PostgreSQL.
+Phiên bản ban đầu sử dụng kiến trúc modular monolith và PostgreSQL làm nguồn dữ liệu chính.
 
-## 2. Architectural Style
+## 2. Kiến trúc tổng thể
 
-RushSeat follows a layered architecture with explicit boundaries between HTTP handling, business logic, persistence, and external integrations.
+RushSeat sử dụng layered architecture, phân tách rõ ràng giữa xử lý HTTP, nghiệp vụ, lưu trữ dữ liệu và tích hợp hệ thống bên ngoài.
 
 ```text
 Client
@@ -28,117 +28,117 @@ Data / Infrastructure Adapters
 PostgreSQL
 ```
 
-The business layer owns use cases and business rules. Data and infrastructure adapters implement the interfaces required by the business layer.
+Business layer chịu trách nhiệm về các use case và quy tắc nghiệp vụ. Data và infrastructure adapters triển khai các interface cần thiết để business layer sử dụng mà không phụ thuộc trực tiếp vào framework lưu trữ hoặc messaging.
 
-## 3. Layer Responsibilities
+## 3. Trách nhiệm của từng layer
 
 ### API
 
-Responsibilities:
-- Handle HTTP requests and responses.
-- Validate request DTOs.
-- Map requests to business inputs.
-- Translate application errors into HTTP responses.
+Trách nhiệm:
+- Tiếp nhận và xử lý HTTP request/response.
+- Validate request DTO.
+- Chuyển đổi request thành dữ liệu đầu vào cho business layer.
+- Chuyển đổi lỗi ứng dụng thành HTTP response phù hợp.
 
-The API layer must not contain inventory management logic or database queries.
+API layer không chứa logic quản lý inventory và không thực hiện truy vấn database trực tiếp.
 
 ### Business
 
-Responsibilities:
-- Implement application use cases.
-- Enforce reservation lifecycle rules.
-- Define domain models and business abstractions.
-- Coordinate operations that must succeed or fail together.
+Trách nhiệm:
+- Triển khai các use case của ứng dụng.
+- Thực thi quy tắc vòng đời reservation.
+- Định nghĩa domain model và các abstraction phục vụ nghiệp vụ.
+- Điều phối các thao tác cần thành công hoặc thất bại cùng nhau.
 
-The business layer must not depend directly on Spring Data JPA, Hibernate, Redis clients, or Kafka clients.
+Business layer không phụ thuộc trực tiếp vào Spring Data JPA, Hibernate, Redis client hoặc Kafka client.
 
 ### Data
 
-Responsibilities:
-- Define persistence entities.
-- Implement database repository adapters.
-- Map between persistence entities and business models.
-- Support transactional persistence operations.
+Trách nhiệm:
+- Định nghĩa persistence entity.
+- Triển khai repository adapter cho database.
+- Chuyển đổi giữa persistence entity và business model.
+- Hỗ trợ các thao tác lưu trữ cần thực hiện trong transaction.
 
-Database constraints and transactions must protect critical inventory invariants.
+Database constraints và transaction phải bảo vệ các bất biến quan trọng của inventory.
 
 ### Infrastructure
 
-Responsibilities:
-- Integrate external systems.
-- Provide Redis, Kafka, and payment adapters when required.
-- Handle infrastructure-specific configuration and failure scenarios.
+Trách nhiệm:
+- Tích hợp các hệ thống bên ngoài.
+- Cung cấp adapter cho Redis, Kafka và payment khi có yêu cầu.
+- Xử lý cấu hình và các tình huống lỗi đặc thù của hạ tầng.
 
-Infrastructure integrations are introduced only when a concrete requirement justifies them.
+Các thành phần infrastructure chỉ được bổ sung khi có yêu cầu kỹ thuật cụ thể chứng minh sự cần thiết.
 
 ### Security
 
-Responsibilities:
-- Authenticate users.
-- Enforce role-based authorization.
-- Protect resources according to ownership and permissions.
+Trách nhiệm:
+- Xác thực người dùng.
+- Thực thi phân quyền dựa trên vai trò.
+- Bảo vệ tài nguyên theo quyền sở hữu và quyền truy cập.
 
-Resource identifiers must never be treated as authorization credentials.
+Không được sử dụng resource ID như một cơ chế xác thực hoặc phân quyền.
 
 ### Config
 
-Responsibilities:
-- Define application configuration.
-- Configure beans and infrastructure integration points.
-- Keep environment-specific settings outside business logic.
+Trách nhiệm:
+- Khai báo cấu hình ứng dụng.
+- Cấu hình bean và các điểm tích hợp hạ tầng.
+- Tách biệt cấu hình theo môi trường khỏi business logic.
 
-## 4. Initial Technology Choices
+## 4. Công nghệ ban đầu
 
 - Java 21
-- Spring Boot 4.1.1
+- Spring Boot 4.x
 - Gradle Kotlin DSL
 - Spring MVC
 - Spring Data JPA / Hibernate
 - PostgreSQL
-- Flyway for database migrations
-- JUnit 5 and Mockito
+- Flyway để quản lý database migration
+- JUnit 5 và Mockito
 
-Redis, Kafka, Docker-based deployment, and cloud infrastructure will be introduced in later phases.
+Redis, Kafka, triển khai bằng Docker và hạ tầng cloud sẽ được bổ sung ở các giai đoạn sau.
 
-## 5. Reservation and Inventory
+## 5. Reservation và inventory
 
-The initial MVP uses general-admission tickets without assigned seats.
+MVP sử dụng vé không gắn với ghế cụ thể (general admission).
 
-Each ticket type maintains:
-- `total_quantity`
-- `held_quantity`
-- `sold_quantity`
+Mỗi ticket type quản lý ba giá trị:
+- `total_quantity`: tổng số vé được phép bán.
+- `held_quantity`: số vé đang được giữ.
+- `sold_quantity`: số vé đã bán thành công.
 
-Available inventory is derived as:
+Số vé còn khả dụng được tính theo công thức:
 
 `available_quantity = total_quantity - held_quantity - sold_quantity`
 
-The following invariant must always hold:
+Bất biến sau phải luôn được đảm bảo:
 
 `0 <= held_quantity + sold_quantity <= total_quantity`
 
-Reservation state transitions and corresponding inventory updates must be atomic.
+Các thao tác chuyển trạng thái reservation và cập nhật inventory tương ứng phải có tính nguyên tử.
 
-PostgreSQL is the authoritative source for reservation state and persistent inventory.
+PostgreSQL là nguồn dữ liệu có thẩm quyền đối với trạng thái reservation và inventory được lưu trữ bền vững.
 
-## 6. Reliability and Concurrency
+## 6. Tính đúng đắn và xử lý đồng thời
 
-The system must support:
-- Transaction-safe inventory updates.
-- Protection against overselling.
-- Idempotent reservation creation.
-- Safe confirmation, cancellation, and expiration.
-- Integration tests for concurrent operations.
-- Reproducible performance benchmarks.
+Hệ thống cần hỗ trợ:
+- Cập nhật inventory an toàn bằng transaction.
+- Ngăn chặn overselling.
+- Tạo reservation có khả năng xử lý request trùng lặp.
+- Xử lý chính xác việc confirm, cancel và expiration.
+- Kiểm thử tích hợp các thao tác đồng thời.
+- Benchmark hiệu năng có thể tái hiện.
 
-Correctness is established before introducing caching or asynchronous processing.
+Tính đúng đắn phải được xác lập trước khi đưa caching hoặc xử lý bất đồng bộ vào hệ thống.
 
-## 7. Evolution Strategy
+## 7. Lộ trình phát triển kiến trúc
 
-1. Implement the core REST API and reservation lifecycle.
-2. Add PostgreSQL persistence and concurrency control.
-3. Evaluate Redis for atomic reservation operations and performance.
-4. Introduce payment simulation, idempotency, and Kafka where justified.
-5. Add integration tests, load tests, CI/CD, and deployment.
+1. Triển khai REST API cốt lõi và vòng đời reservation.
+2. Bổ sung PostgreSQL persistence và concurrency control.
+3. Đánh giá việc sử dụng Redis để tối ưu reservation và hiệu năng.
+4. Bổ sung payment simulator, idempotency và Kafka khi có lý do phù hợp.
+5. Hoàn thiện integration tests, load tests, CI/CD, triển khai và tài liệu.
 
-Each new infrastructure component must have a defined responsibility, failure-handling strategy, and measurable benefit.
+Mỗi thành phần hạ tầng mới phải có trách nhiệm rõ ràng, chiến lược xử lý lỗi và lợi ích có thể đo lường.
