@@ -17,15 +17,14 @@ The project explores how to design and test a reservation system that handles co
 
 ## Technology Stack
 
-- Java 21
-- Spring Boot 4.1.1
-- Spring MVC
-- Spring Data JPA / Hibernate
-- PostgreSQL
-- JUnit 5, Mockito, Testcontainers
-- k6
-- Docker and Docker Compose
-- GitHub Actions
+- **Language:** Java 21
+- **Backend Framework:** Spring Boot 4.1.1, Spring MVC
+- **Persistence:** Spring Data JPA, Hibernate
+- **Database:** PostgreSQL
+- **Testing:** JUnit 5, Mockito, Testcontainers
+- **Performance Testing:** k6
+- **Infrastructure:** Docker, Docker Compose
+- **CI/CD:** GitHub Actions
 
 Redis, Kafka, and AWS deployment will be introduced in later phases when specific requirements justify their use.
 
