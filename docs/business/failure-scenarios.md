@@ -2,15 +2,15 @@
 
 ## 1. Mục tiêu
 
-Tài liệu liệt kê các tình huống lỗi có thể xảy ra trong những nghiệp vụ chính của RushSeat và xác định hành vi mà hệ thống cần bảo đảm.
+Tài liệu liệt kê các tình huống lỗi có thể xảy ra trong các nghiệp vụ chính của RushSeat và xác định hành vi mà hệ thống cần bảo đảm.
 
-Mục tiêu không phải là loại bỏ mọi lỗi, mà là bảo đảm lỗi không làm hỏng dữ liệu hoặc tạo ra trạng thái nghiệp vụ không hợp lệ.
+Mục tiêu không phải loại bỏ mọi lỗi, mà là bảo đảm lỗi không làm hỏng dữ liệu hoặc tạo ra trạng thái nghiệp vụ không hợp lệ.
 
 ## 2. Lỗi liên quan đến Event
 
 ### 2.1. Event không tồn tại
 
-**Tình huống:** Customer hoặc Organizer gửi yêu cầu với `eventId` không hợp lệ.
+**Tình huống:** Người dùng gửi yêu cầu với `eventId` không hợp lệ.
 
 **Yêu cầu xử lý:**
 - Từ chối yêu cầu.
@@ -41,7 +41,7 @@ Mục tiêu không phải là loại bỏ mọi lỗi, mà là bảo đảm lỗ
 **Yêu cầu xử lý:**
 - Từ chối yêu cầu.
 - Không thay đổi Event.
-- Không dựa riêng vào role để quyết định quyền truy cập.
+- Kiểm tra cả vai trò và quyền sở hữu tài nguyên.
 
 ## 3. Lỗi liên quan đến tồn kho
 
@@ -59,13 +59,13 @@ Mục tiêu không phải là loại bỏ mọi lỗi, mà là bảo đảm lỗ
 **Tình huống:** Nhiều yêu cầu đồng thời tranh cùng một TicketType.
 
 **Yêu cầu xử lý:**
-- Chỉ những yêu cầu thỏa điều kiện tồn kho tại thời điểm cập nhật mới được thành công.
+- Chỉ yêu cầu thỏa điều kiện tồn kho tại thời điểm cập nhật mới được giữ vé thành công.
 - Không để `held_quantity + sold_quantity` vượt `total_quantity`.
-- Xử lý xung đột hoặc transaction thất bại theo chính sách đã chọn.
+- Xử lý xung đột hoặc transaction thất bại theo cơ chế đã chọn.
 
 ### 3.3. Thất bại khi lưu ReservationItem
 
-**Tình huống:** Tồn kho đã được cập nhật nhưng việc tạo ReservationItem thất bại.
+**Tình huống:** Việc giữ tồn kho đã được thực hiện nhưng tạo ReservationItem thất bại.
 
 **Yêu cầu xử lý:**
 - Rollback các thay đổi thuộc cùng transaction.
@@ -75,12 +75,12 @@ Mục tiêu không phải là loại bỏ mọi lỗi, mà là bảo đảm lỗ
 
 ### 4.1. Reservation đã hết hạn
 
-**Tình huống:** Customer xác nhận sau `expiresAt`.
+**Tình huống:** Customer xác nhận khi thời điểm hiện tại lớn hơn hoặc bằng `expiresAt`.
 
 **Yêu cầu xử lý:**
 - Không xác nhận Reservation.
-- Reservation phải được xử lý theo quy tắc hết hạn.
-- Không được tăng `sold_quantity` cho thao tác xác nhận thất bại.
+- Xử lý hết hạn và giải phóng vé theo cơ chế an toàn.
+- Không tăng `sold_quantity` cho thao tác xác nhận thất bại.
 
 ### 4.2. Reservation đã được xác nhận
 
@@ -90,33 +90,45 @@ Mục tiêu không phải là loại bỏ mọi lỗi, mà là bảo đảm lỗ
 - Không thực hiện lại phép chuyển đổi tồn kho.
 - Trả kết quả phù hợp với trạng thái hiện tại.
 
-### 4.3. Hủy lặp lại
+### 4.3. Customer tự hủy Reservation đã xác nhận
 
-**Tình huống:** Hai yêu cầu cùng hủy một Reservation.
+**Tình huống:** Customer gửi yêu cầu hủy Reservation ở trạng thái `CONFIRMED`.
 
 **Yêu cầu xử lý:**
-- Chỉ một thao tác được phép thực hiện chuyển đổi trạng thái và giải phóng tồn kho.
-- Không giảm tồn kho lần thứ hai.
-- Xử lý yêu cầu còn lại theo trạng thái thực tế của Reservation.
+- Từ chối yêu cầu.
+- Không thay đổi trạng thái Reservation.
+- Không giảm `sold_quantity`.
 
-### 4.4. Hết hạn đồng thời với xác nhận
+Reservation đã xác nhận chỉ được đưa vào quy trình hủy khi có nghiệp vụ hợp lệ, chẳng hạn Event bị hủy.
+
+### 4.4. Hủy lặp lại
+
+**Tình huống:** Hai yêu cầu cùng hủy một Reservation đang `HELD`.
+
+**Yêu cầu xử lý:**
+- Chỉ một thao tác được phép thực hiện chuyển trạng thái và giải phóng tồn kho.
+- Không giảm tồn kho lần thứ hai.
+- Yêu cầu còn lại phải xử lý theo trạng thái thực tế của Reservation.
+
+### 4.5. Hết hạn đồng thời với xác nhận
 
 **Tình huống:** Tác vụ nền hết hạn và Customer xác nhận gần như đồng thời.
 
 **Yêu cầu xử lý:**
 - Chỉ một chuyển đổi trạng thái hợp lệ được commit.
-- Nếu Reservation đã hết hạn theo quy tắc thời gian, không được xác nhận thành công.
-- Không vừa giảm `held_quantity` do hết hạn vừa giảm lần nữa do một thao tác khác.
+- Reservation đã hết hạn không được xác nhận thành công.
+- Không vừa giảm `held_quantity` do hết hạn vừa giảm lần nữa do thao tác khác.
+- Nếu tác vụ nền chưa chạy, use case xác nhận vẫn phải kiểm tra `expiresAt`.
 
 ## 5. Lỗi khi hủy Event
 
 ### 5.1. Hủy Event đồng thời với xác nhận Reservation
 
-**Tình huống:** Một yêu cầu hủy Event và một yêu cầu xác nhận Reservation diễn ra đồng thời.
+**Tình huống:** Yêu cầu hủy Event và yêu cầu xác nhận Reservation diễn ra đồng thời.
 
 **Yêu cầu xử lý:**
 - Phối hợp cập nhật trạng thái Event và Reservation bằng cơ chế đồng bộ hóa phù hợp.
-- Không để Reservation được xác nhận sau khi Event đã bị hủy theo thứ tự xử lý được hệ thống bảo đảm.
+- Không để Reservation được xác nhận thành công khi Event đã bị hủy theo thứ tự xử lý được hệ thống bảo đảm.
 - Xác định rõ transaction boundary và cách xử lý khi một thao tác thất bại.
 
 ### 5.2. Chỉ xử lý được một phần Reservation
@@ -124,62 +136,111 @@ Mục tiêu không phải là loại bỏ mọi lỗi, mà là bảo đảm lỗ
 **Tình huống:** Event đã chuyển sang `CANCELLED`, nhưng một số Reservation chưa được xử lý.
 
 **Yêu cầu xử lý:**
-- Nếu dùng một transaction, toàn bộ thay đổi thuộc transaction phải rollback khi thất bại.
-- Nếu xử lý theo nhiều transaction, hệ thống phải ghi nhận phần việc chưa hoàn tất và có cách tiếp tục xử lý.
+- Nếu sử dụng một transaction cho toàn bộ quy trình, các thay đổi thuộc transaction phải rollback khi thất bại.
+- Nếu xử lý theo nhiều transaction, hệ thống phải ghi nhận các Reservation chưa hoàn tất.
+- Cần cơ chế tiếp tục xử lý và retry an toàn.
 - Chạy lại không được giải phóng tồn kho nhiều lần.
 
-### 5.3. Hủy Reservation đã xác nhận
+### 5.3. Hủy Reservation đã xác nhận chưa hoàn tất
 
-**Tình huống:** Reservation chuyển sang `CANCELLATION_PENDING`, nhưng việc xử lý hủy chưa hoàn tất.
+**Tình huống:** Reservation đã chuyển sang `CANCELLATION_PENDING`, nhưng cập nhật dữ liệu nội bộ chưa hoàn tất.
 
 **Yêu cầu xử lý:**
 - Không coi Reservation là đã hủy hoàn tất.
-- Không tự động giả định hoàn tiền thành công.
-- Chỉ chuyển sang `CANCELLED` khi điều kiện hoàn tất đã được đáp ứng.
+- Không giảm `sold_quantity` nhiều lần.
+- Chỉ chuyển sang `CANCELLED` khi các cập nhật dữ liệu nội bộ cần thiết thành công.
+- Không giả định rằng tiền đã được hoàn.
 
-## 6. Lỗi cơ sở dữ liệu
+## 6. Lỗi khi xử lý Reservation hết hạn
 
-### 6.1. Transaction thất bại
+### 6.1. Tác vụ nền chạy chậm
+
+**Tình huống:** Reservation đã hết hạn nhưng tác vụ nền chưa chạy.
+
+**Yêu cầu xử lý:**
+- Use case xác nhận phải từ chối Reservation đã hết hạn.
+- Tác vụ nền giải phóng vé khi xử lý Reservation đó.
+- Không cho phép Reservation được xác nhận chỉ vì tác vụ nền chạy chậm.
+
+### 6.2. Hai worker cùng xử lý một Reservation
+
+**Tình huống:** Hai worker cùng tìm thấy một Reservation hết hạn.
+
+**Yêu cầu xử lý:**
+- Chỉ một worker được phép thực hiện chuyển đổi trạng thái và giải phóng vé.
+- Worker còn lại không được giảm `held_quantity` lần nữa.
+- Việc cập nhật cần có điều kiện hoặc cơ chế khóa phù hợp.
+
+### 6.3. Transaction hết hạn thất bại
+
+**Tình huống:** Cập nhật trạng thái hoặc tồn kho thất bại.
+
+**Yêu cầu xử lý:**
+- Rollback các thay đổi thuộc transaction.
+- Không để Reservation và tồn kho mất nhất quán.
+- Chỉ retry khi thao tác có tính lặp an toàn.
+- Ghi nhận lỗi để có thể theo dõi và xử lý tiếp.
+
+## 7. Lỗi cơ sở dữ liệu
+
+### 7.1. Transaction thất bại
 
 **Yêu cầu xử lý:**
 - Không trả về kết quả thành công nếu commit thất bại.
 - Rollback các thay đổi thuộc transaction.
 - Không giả định rằng thao tác đã thành công chỉ vì một câu lệnh trước đó trả về kết quả hợp lệ.
 
-### 6.2. Deadlock hoặc xung đột đồng thời
+### 7.2. Deadlock hoặc xung đột đồng thời
 
 **Yêu cầu xử lý:**
 - Không bỏ qua lỗi.
-- Chỉ retry các transaction phù hợp và bảo đảm thao tác có tính lặp an toàn.
+- Chỉ retry các transaction phù hợp và có cơ chế bảo đảm tính lặp an toàn.
 - Giới hạn số lần retry.
-- Ghi log đủ thông tin để điều tra mà không làm lộ thông tin nhạy cảm.
+- Ghi log đủ thông tin để điều tra mà không làm lộ dữ liệu nhạy cảm.
 
-### 6.3. Mất kết nối sau khi gửi yêu cầu
+### 7.3. Mất kết nối sau khi gửi yêu cầu
 
 **Tình huống:** Client không biết thao tác đã commit hay chưa vì kết nối bị ngắt.
 
 **Yêu cầu xử lý:**
 - Không mặc định rằng yêu cầu thất bại chỉ vì client không nhận được phản hồi.
-- Khi cần bảo đảm retry an toàn cho thao tác tạo Reservation, phải thiết kế cơ chế nhận diện yêu cầu lặp.
-- Cơ chế idempotency chưa thuộc phạm vi ban đầu và cần được thiết kế riêng trước khi tuyên bố xử lý được trường hợp này hoàn toàn.
+- Với thao tác tạo Reservation, cần thiết kế cơ chế nhận diện yêu cầu lặp nếu muốn hỗ trợ retry an toàn.
+- Idempotency chưa thuộc phạm vi ban đầu và cần được thiết kế riêng trước khi tuyên bố xử lý được hoàn toàn tình huống này.
 
-## 7. Logging và quan sát
+## 8. Logging và quan sát
 
-Các lỗi nghiệp vụ và kỹ thuật nên được phân biệt:
+Các lỗi cần được phân biệt thành hai nhóm.
 
-- Lỗi nghiệp vụ: hết vé, Event không hợp lệ, Reservation hết hạn, không đủ quyền.
-- Lỗi kỹ thuật: lỗi cơ sở dữ liệu, deadlock, timeout, lỗi commit.
+### Lỗi nghiệp vụ
 
-Log nên có các định danh cần thiết như `eventId`, `reservationId` và loại thao tác khi có sẵn. Không ghi mật khẩu, token hoặc dữ liệu xác thực nhạy cảm.
+Ví dụ:
+- Không đủ vé.
+- Event không hợp lệ.
+- Reservation hết hạn.
+- Không đủ quyền.
+- Reservation không thể chuyển trạng thái.
 
-## 8. Ánh xạ package
+### Lỗi kỹ thuật
+
+Ví dụ:
+- Lỗi cơ sở dữ liệu.
+- Deadlock.
+- Timeout.
+- Lỗi commit.
+- Lỗi khi tác vụ nền xử lý Reservation.
+
+Log nên có các định danh cần thiết như `eventId`, `reservationId` và loại thao tác khi có sẵn.
+
+Không ghi mật khẩu, token hoặc dữ liệu xác thực nhạy cảm.
+
+## 9. Ánh xạ package
 
 - `api`: Chuyển lỗi nghiệp vụ và kỹ thuật thành phản hồi API phù hợp.
 - `business`: Phát hiện vi phạm quy tắc và xác định hành vi nghiệp vụ.
 - `data`: Xử lý lỗi persistence và cập nhật dữ liệu nhất quán.
 - `infrastructure`: Cấu hình logging, transaction, retry và tác vụ nền.
 
-## 9. Nguyên tắc chung
+## 10. Nguyên tắc chung
 
 - Không trả thành công khi dữ liệu chưa được commit.
 - Không để lỗi một phần tạo ra tồn kho không nhất quán.
