@@ -143,10 +143,12 @@ Các chuyển đổi khác chỉ được bổ sung khi có quy tắc nghiệp v
 - Reservation phải có ít nhất một ReservationItem.
 - Tất cả ReservationItem trong cùng một Reservation phải thuộc cùng một Event.
 - Reservation ở `HELD` phải có thời hạn giữ chỗ hợp lệ.
-- Reservation đã ở trạng thái kết thúc không được xử lý lại như một reservation còn hoạt động.
+- Customer chỉ được tự hủy Reservation ở trạng thái `HELD`.
+- Customer không được tự hủy Reservation ở trạng thái `CONFIRMED`.
+- Reservation `CONFIRMED` có thể được đưa vào quy trình hủy khi Event bị hủy.
+- Reservation đã ở trạng thái kết thúc không được xử lý lại như một Reservation còn hoạt động.
 - Việc chuyển trạng thái phải nhất quán với thay đổi tồn kho.
 - `CANCELLED` không tự thể hiện kết quả hoàn tiền.
-
 ### 2.5. ReservationItem
 
 Đại diện cho một dòng vé trong Reservation.
@@ -290,19 +292,30 @@ Nếu Event đã bị hủy hoặc reservation đã hết hạn, không được
 
 ### 5.3. Hủy hoặc hết hạn Reservation
 
-Khi Reservation `HELD` chuyển sang `CANCELLED` hoặc `EXPIRED`, hệ thống giảm `heldQuantity` tương ứng.
+Khi Reservation `HELD` chuyển sang `CANCELLED` hoặc `EXPIRED`, hệ thống phải giảm `heldQuantity` tương ứng.
 
-Khi Reservation đã xác nhận được xử lý hủy, hệ thống phải tuân theo chính sách hủy và cập nhật `soldQuantity` đúng một lần khi việc hủy được xem là hoàn tất.
+Reservation hết hạn khi thời điểm hiện tại lớn hơn hoặc bằng `expiresAt`.
 
+RushSeat sử dụng hai cơ chế phối hợp để xử lý Reservation hết hạn:
+
+- Tác vụ nền chạy định kỳ để tìm và giải phóng vé của các Reservation đã hết hạn.
+- Use case xác nhận tự kiểm tra thời hạn để từ chối Reservation đã hết hạn, kể cả khi tác vụ nền chưa chạy.
+
+Việc cập nhật trạng thái và tồn kho phải được thực hiện an toàn khi có yêu cầu đồng thời.
+
+Customer không được tự hủy Reservation ở trạng thái `CONFIRMED`. Reservation đã xác nhận chỉ được đưa vào quy trình hủy khi có nghiệp vụ hợp lệ, chẳng hạn Event bị hủy.
 ### 5.4. Hủy Event
 
 Khi Event bị hủy:
 
 - Reservation `HELD` được chuyển sang `CANCELLED` và giải phóng lượng vé đang giữ.
 - Reservation `CONFIRMED` chuyển sang `CANCELLATION_PENDING`.
-- Khi xử lý hủy hoàn tất, reservation chuyển sang `CANCELLED`.
-- Không cho phép tạo hoặc xác nhận reservation mới cho Event đã hủy.
+- Sau khi các cập nhật dữ liệu nội bộ cần thiết thành công, Reservation chuyển sang `CANCELLED`.
+- Khi quy trình hủy hoàn tất, hệ thống giảm `soldQuantity` theo số lượng vé liên quan nếu chính sách xác định các vé này không còn được tính là đã bán.
+- Không cho phép tạo hoặc xác nhận Reservation mới cho Event đã hủy.
+- Việc hủy Reservation không đồng nghĩa với việc tiền đã được hoàn.
 
+Nếu quy trình xử lý hủy sử dụng nhiều transaction, hệ thống phải có cơ chế phát hiện và tiếp tục xử lý các Reservation chưa hoàn tất, đồng thời bảo đảm không cập nhật tồn kho nhiều lần.
 ## 6. Ranh giới giữa Domain và Data
 
 Các đối tượng trong `business` mô tả khái niệm và quy tắc nghiệp vụ. Chúng không cần biết dữ liệu được lưu bằng PostgreSQL hay được truy xuất bằng Spring Data JPA.
@@ -320,11 +333,16 @@ Không nên đưa các annotation như `@Entity`, `@Table` hoặc các interface
 
 ## 7. Các điểm cần xác định khi phát triển tiếp
 
-1. **Quyền chỉnh sửa Event:** Xác định các trường được chỉnh sửa ở trạng thái `DRAFT` và `PUBLISHED`, đặc biệt khi đã có reservation.
+1. **Quyền chỉnh sửa Event:** Xác định các trường được chỉnh sửa ở trạng thái `DRAFT` và `PUBLISHED`, đặc biệt khi đã có Reservation.
 2. **Thời điểm mở bán:** Nếu khác `startsAt`, bổ sung trường thời gian mở bán riêng.
-3. **Hoàn tất hủy:** Xác định chính xác điều kiện chuyển `CANCELLATION_PENDING → CANCELLED`.
-4. **Hủy reservation đã xác nhận:** Chốt khi nào được phép hủy và cách cập nhật `soldQuantity`.
-5. **Xử lý hết hạn:** Xác định cách phát hiện reservation hết hạn và bảo đảm không xác nhận đồng thời với quá trình hết hạn.
-6. **Thay đổi số lượng vé:** Xác định điều kiện giảm `totalQuantity` khi đã có vé đang giữ hoặc đã bán.
+3. **Thay đổi số lượng vé:** Xác định điều kiện giảm `totalQuantity` khi đã có vé đang giữ hoặc đã bán.
+4. **Cơ chế xử lý hủy Event:** Chốt ranh giới transaction, cách xử lý nhiều Reservation và cơ chế tiếp tục xử lý khi một phần quy trình thất bại.
+5. **Tác vụ nền hết hạn:** Xác định chu kỳ chạy, kích thước mỗi lô và chính sách retry khi triển khai.
 
-Các quyết định này cần được thống nhất trước khi triển khai các use case liên quan.
+Các quyết định nghiệp vụ đã thống nhất:
+
+- `CANCELLATION_PENDING` là trạng thái trung gian.
+- Trong MVP, quy trình hủy hoàn tất sau khi các cập nhật dữ liệu nội bộ cần thiết thành công.
+- Customer không được tự hủy Reservation `CONFIRMED`.
+- Reservation hết hạn được xử lý bằng tác vụ nền định kỳ kết hợp kiểm tra thời hạn khi xác nhận.
+- MVP chưa tích hợp cổng thanh toán; trạng thái `CANCELLED` không xác nhận việc hoàn tiền.
