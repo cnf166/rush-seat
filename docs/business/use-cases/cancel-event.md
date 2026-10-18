@@ -1,205 +1,151 @@
-# Hủy sự kiện và xử lý Reservation liên quan
+# Nghiệp vụ hủy Event và xử lý Reservation liên quan
 
-## 1. Mục tiêu nghiệp vụ
+## 1. Mục tiêu
 
-Cho phép Organizer hủy sự kiện do mình quản lý và cho phép Admin hủy sự kiện theo quyền quản trị toàn hệ thống.
+Cho phép Organizer hủy Event do mình sở hữu và cho phép Admin hủy Event theo quyền quản trị toàn hệ thống.
 
-Khi một sự kiện bị hủy, hệ thống phải ngừng tiếp nhận reservation mới, ngăn các reservation đang giữ chỗ được xác nhận và xử lý những reservation đã tồn tại theo trạng thái tương ứng.
+Khi Event bị hủy, hệ thống phải ngừng tiếp nhận Reservation mới, ngăn việc xác nhận Reservation đang giữ vé và xử lý các Reservation đã tồn tại theo trạng thái tương ứng.
 
-Quy trình cần bảo đảm tính nhất quán của trạng thái reservation và số lượng vé, kể cả khi nhiều yêu cầu được xử lý đồng thời.
+## 2. Tác nhân
 
-### 1.1. Các tác nhân
+- **Organizer:** Hủy Event do mình sở hữu.
+- **Admin:** Hủy Event theo quyền quản trị.
+- **Customer:** Người sở hữu các Reservation liên quan.
+- **Hệ thống:** Cập nhật Event, xử lý Reservation và điều chỉnh tồn kho.
 
-- **Organizer:** Hủy sự kiện do mình sở hữu.
-- **Admin:** Hủy sự kiện theo quyền quản trị toàn hệ thống.
-- **Customer:** Người dùng có reservation thuộc sự kiện bị hủy.
-- **Hệ thống:** Kiểm tra quyền, cập nhật trạng thái sự kiện, xử lý reservation liên quan và điều chỉnh số lượng vé.
+## 3. Quy tắc nghiệp vụ
 
-### 1.2. Phạm vi MVP
+### 3.1. Quyền hủy Event
 
-MVP chưa tích hợp cổng thanh toán. Vì vậy, tài liệu này mô tả quy trình hủy reservation và cập nhật dữ liệu nội bộ; không giả định rằng hệ thống đã thực hiện hoặc xác nhận hoàn tiền.
+1. Organizer chỉ được hủy Event thuộc quyền sở hữu của mình.
+2. Admin có quyền quản lý Event trên toàn hệ thống.
+3. Customer không được hủy Event.
+4. Hệ thống phải kiểm tra cả vai trò và quyền sở hữu tài nguyên.
 
-Việc hoàn tiền sẽ là một nghiệp vụ riêng khi RushSeat tích hợp thanh toán.
-
-## 2. Quy tắc nghiệp vụ
-
-### 2.1. Quyền hủy sự kiện
-
-1. Organizer chỉ được hủy sự kiện do mình sở hữu.
-2. Admin có quyền quản lý sự kiện trên toàn hệ thống.
-3. Customer không có quyền hủy sự kiện.
-4. Hệ thống phải kiểm tra cả quyền theo vai trò và quyền sở hữu tài nguyên. Chỉ kiểm tra role là chưa đủ để bảo đảm Organizer không can thiệp vào sự kiện của người khác.
-
-### 2.2. Trạng thái sự kiện
+### 3.2. Trạng thái Event
 
 Trong MVP, `EventStatus` gồm:
 
-- `DRAFT`: Sự kiện đang được chuẩn bị, chưa công khai.
-- `PUBLISHED`: Sự kiện đã được công khai.
-- `CANCELLED`: Sự kiện đã bị hủy.
+- `DRAFT`
+- `PUBLISHED`
+- `CANCELLED`
 
-`CANCELLED` là trạng thái kết thúc trong MVP. Sự kiện đã hủy không được mở bán hoặc nhận reservation trở lại.
+`CANCELLED` là trạng thái kết thúc. Event đã hủy không được công khai hoặc mở bán trở lại trong MVP.
 
-Hệ thống cần từ chối yêu cầu tạo reservation mới và yêu cầu xác nhận reservation đang giữ chỗ nếu sự kiện đã bị hủy.
+Khi Event đã `CANCELLED`:
 
-### 2.3. Xử lý reservation theo trạng thái
+- Không được tạo Reservation mới.
+- Không được xác nhận Reservation đang giữ vé.
+- Các Reservation hiện có phải được xử lý theo quy tắc dưới đây.
 
-| Trạng thái trước khi sự kiện bị hủy | Trạng thái tiếp theo | Xử lý số lượng vé |
+### 3.3. Xử lý Reservation
+
+| Trạng thái trước khi Event bị hủy | Trạng thái tiếp theo | Xử lý tồn kho |
 |---|---|---|
-| `HELD` | `CANCELLED` | Giảm `held_quantity` theo số lượng đã giữ |
-| `CONFIRMED` | `CANCELLATION_PENDING` | Chưa hoàn tất xử lý hủy; chưa tự động giải phóng số lượng đã bán |
-| `CANCELLATION_PENDING` | `CANCELLED` | Hoàn tất xử lý hủy và cập nhật số lượng đã bán theo quy tắc đã xác định |
-| `CANCELLED` | Không đổi | Không xử lý lặp lại |
+| `HELD` | `CANCELLED` | Giảm `held_quantity` |
+| `CONFIRMED` | `CANCELLATION_PENDING` | Chưa giảm `sold_quantity` cho đến khi xử lý hủy hoàn tất |
+| `CANCELLATION_PENDING` | `CANCELLED` | Giảm `sold_quantity` theo chính sách hủy khi hoàn tất |
+| `CANCELLED` | Không đổi | Không xử lý lại |
 
-`CANCELLATION_PENDING` là trạng thái trung gian, không phải trạng thái kết thúc. Reservation chỉ chuyển sang `CANCELLED` khi quy trình xử lý hủy hoàn tất.
+Customer không được tự hủy Reservation đã `CONFIRMED`. Việc đưa Reservation đó vào quy trình hủy được kích hoạt bởi nghiệp vụ hủy Event.
 
-### 2.4. Quy tắc cập nhật tồn kho
+## 4. Luồng nghiệp vụ
 
-RushSeat quản lý số lượng vé bằng ba trường:
+### Bước 1 — Tiếp nhận yêu cầu
 
-- `total_quantity`: Tổng số vé được tạo.
-- `held_quantity`: Số vé đang được giữ bởi reservation chưa xác nhận.
-- `sold_quantity`: Số vé đã được xác nhận.
+Organizer hoặc Admin gửi yêu cầu hủy Event.
 
-Số lượng vé còn khả dụng được tính bằng:
+Hệ thống xác thực người thực hiện và kiểm tra quyền quản lý Event.
 
-`available_quantity = total_quantity - held_quantity - sold_quantity`
+Nếu Organizer không sở hữu Event, hệ thống từ chối yêu cầu.
 
-Các quy tắc cần bảo đảm:
+### Bước 2 — Chuyển Event sang `CANCELLED`
 
-1. Khi hủy reservation ở trạng thái `HELD`, hệ thống phải giảm `held_quantity` đúng một lần.
-2. Khi reservation đã `CONFIRMED` chuyển sang `CANCELLATION_PENDING`, chưa được coi là đã hủy hoàn tất.
-3. Khi xử lý hủy reservation đã xác nhận hoàn tất, hệ thống cần giảm `sold_quantity` theo số lượng vé của reservation đó, nếu chính sách nghiệp vụ xác định các vé này không còn được tính là đã bán.
-4. Không được giải phóng tồn kho nhiều lần nếu nhiều yêu cầu cùng xử lý một reservation.
-5. Việc cập nhật trạng thái và tồn kho liên quan phải nhất quán trong cơ sở dữ liệu.
+Hệ thống chuyển Event sang `CANCELLED`.
 
-Do sự kiện đã bị hủy nên vé được giải phóng không được phép quay trở lại trạng thái có thể bán trong sự kiện đó.
+Từ thời điểm này, các use case tạo và xác nhận Reservation phải từ chối những thao tác không còn hợp lệ.
 
-### 2.5. Quy tắc về hoàn tiền
+Việc cập nhật trạng thái Event cần được phối hợp với các use case Reservation để xử lý yêu cầu đồng thời.
 
-Trạng thái reservation không đại diện cho trạng thái hoàn tiền.
+### Bước 3 — Xử lý Reservation `HELD`
 
-Ví dụ, `CANCELLED` chỉ cho biết reservation đã được hủy. Nó không chứng minh giao dịch hoàn tiền đã thành công.
+Với mỗi Reservation đang `HELD`:
 
-Trong MVP:
+1. Chuyển Reservation sang `CANCELLED`.
+2. Giảm `held_quantity` theo số lượng vé đang giữ.
+3. Bảo đảm thao tác giải phóng chỉ được thực hiện một lần.
 
-- Chưa có tích hợp cổng thanh toán.
-- Không tự động giả định rằng tiền đã được hoàn.
-- Quy trình hủy reservation và quy trình hoàn tiền được xem là hai nghiệp vụ khác nhau.
-- Khi tích hợp thanh toán, hệ thống cần có trạng thái hoặc bản ghi riêng để theo dõi quá trình hoàn tiền.
+### Bước 4 — Xử lý Reservation `CONFIRMED`
 
-## 3. Luồng nghiệp vụ
+Với mỗi Reservation đang `CONFIRMED`:
 
-### 3.1. Bước 1 — Tiếp nhận yêu cầu hủy
+1. Đưa Reservation vào `CANCELLATION_PENDING`.
+2. Thực hiện các cập nhật dữ liệu nội bộ cần thiết.
+3. Giảm `sold_quantity` theo số lượng vé liên quan nếu chính sách hủy xác định các vé không còn được tính là đã bán.
+4. Chuyển Reservation sang `CANCELLED` khi xử lý hoàn tất.
 
-Organizer hoặc Admin gửi yêu cầu hủy sự kiện.
+Trong MVP, hoàn tất xử lý hủy nghĩa là các cập nhật dữ liệu nội bộ cần thiết đã thành công. Không có cổng thanh toán nên hệ thống không được thông báo rằng tiền đã được hoàn.
 
-Hệ thống xác thực người dùng, kiểm tra quyền và xác minh sự kiện có thể được hủy theo chính sách hiện tại.
+### Bước 5 — Trả kết quả
 
-Nếu Organizer không sở hữu sự kiện, hệ thống từ chối yêu cầu.
+Hệ thống trả kết quả cho Organizer hoặc Admin.
 
-### 3.2. Bước 2 — Chuyển sự kiện sang `CANCELLED`
+Kết quả cần phản ánh trạng thái Event và kết quả xử lý Reservation theo thiết kế đã chọn.
 
-Hệ thống cập nhật trạng thái sự kiện thành `CANCELLED`.
+Nếu quy trình được chia thành nhiều transaction và vẫn còn Reservation chưa xử lý, hệ thống phải có cách ghi nhận và tiếp tục phần việc còn lại.
 
-Từ thời điểm này, các yêu cầu tạo reservation mới phải bị từ chối. Các yêu cầu xác nhận reservation đang giữ chỗ cũng phải kiểm tra trạng thái sự kiện trước khi xác nhận.
+## 5. Thiết kế kỹ thuật
 
-Việc kiểm tra này cần được thực hiện trong luồng xử lý nghiệp vụ, không chỉ ở giao diện hoặc API.
+### 5.1. Ranh giới transaction
 
-### 3.3. Bước 3 — Xử lý các reservation đang tồn tại
+Có hai hướng triển khai.
 
-Hệ thống tìm và xử lý các reservation thuộc sự kiện bị hủy:
-
-- Với `HELD`: chuyển sang `CANCELLED` và giải phóng số vé đang giữ.
-- Với `CONFIRMED`: chuyển sang `CANCELLATION_PENDING`.
-- Với `CANCELLATION_PENDING`: tiếp tục xử lý theo quy trình hủy.
-- Với `CANCELLED`: không thực hiện lại thao tác.
-
-Các reservation không thuộc sự kiện bị hủy không bị ảnh hưởng.
-
-### 3.4. Bước 4 — Hoàn tất xử lý hủy reservation
-
-Với reservation đang ở `CANCELLATION_PENDING`, hệ thống thực hiện các bước cần thiết để hoàn tất việc hủy.
-
-Khi xử lý hoàn tất, reservation chuyển sang `CANCELLED`. Nếu chính sách tồn kho xác định vé không còn được tính là đã bán, hệ thống giảm `sold_quantity` tương ứng.
-
-Trong MVP, cần xác định rõ điều kiện nào được xem là hoàn tất. Vì chưa có cổng thanh toán, việc hoàn tất hủy reservation không đồng nghĩa với việc hoàn tiền đã diễn ra.
-
-### 3.5. Bước 5 — Trả kết quả
-
-Hệ thống trả kết quả cho tác nhân yêu cầu hủy sự kiện.
-
-Kết quả cần phản ánh việc sự kiện đã bị hủy và quy trình xử lý reservation liên quan đã được thực hiện đến đâu. Không được thông báo rằng tiền đã được hoàn nếu chưa có bằng chứng về giao dịch hoàn tiền thành công.
-
-## 4. Thiết kế kỹ thuật
-
-### 4.1. Ranh giới giao dịch
-
-Việc chuyển trạng thái sự kiện và xử lý reservation có thể liên quan đến nhiều bản ghi trong cơ sở dữ liệu. Nếu toàn bộ thao tác được thực hiện trong một giao dịch lớn, hệ thống có thể giữ khóa lâu khi sự kiện có nhiều reservation.
-
-Có hai hướng thiết kế:
-
-**Phương án A — Một giao dịch cho toàn bộ quy trình**
-
-Cập nhật sự kiện, chuyển trạng thái reservation và cập nhật tồn kho trong cùng một giao dịch.
+**Một transaction cho toàn bộ quy trình**
 
 Ưu điểm:
-- Dễ bảo đảm tính nguyên tử.
-- Nếu một thao tác thất bại, toàn bộ giao dịch có thể rollback.
+- Tính nguyên tử đơn giản hơn.
+- Nếu một thao tác bắt buộc thất bại, các thay đổi trong transaction có thể rollback.
 
 Nhược điểm:
-- Thời gian giao dịch có thể dài.
-- Có thể gây tranh chấp khóa khi sự kiện có nhiều reservation.
+- Có thể giữ khóa lâu khi Event có nhiều Reservation.
+- Khối lượng công việc lớn có thể làm tăng tranh chấp tài nguyên.
 
-**Phương án B — Tách thành các bước xử lý**
-
-Đánh dấu sự kiện đã hủy trước, sau đó xử lý các reservation theo từng giao dịch nhỏ.
+**Nhiều transaction nhỏ**
 
 Ưu điểm:
-- Dễ xử lý số lượng reservation lớn.
-- Giảm thời gian mỗi giao dịch giữ khóa.
+- Có thể xử lý số lượng Reservation lớn hơn theo từng lô.
+- Giảm thời gian mỗi transaction giữ khóa.
 
 Nhược điểm:
-- Có giai đoạn sự kiện đã hủy nhưng vẫn còn reservation chưa xử lý.
-- Cần cơ chế tiếp tục xử lý, retry và phát hiện lỗi.
-- Quy trình phải có khả năng chạy lại mà không cập nhật tồn kho nhiều lần.
+- Event có thể đã `CANCELLED` trong khi một số Reservation vẫn chưa xử lý xong.
+- Cần cơ chế theo dõi, tiếp tục xử lý và retry an toàn.
+- Phải bảo đảm việc chạy lại không làm thay đổi tồn kho nhiều lần.
 
-Với RushSeat, có thể bắt đầu bằng phương án A khi dữ liệu nhỏ và quy trình đơn giản. Nếu chuyển sang phương án B, cần thiết kế khả năng xử lý tiếp và tính lặp an toàn trước khi triển khai.
+Với MVP, có thể bắt đầu bằng một quy trình đơn giản với transaction phù hợp. Nếu tách thành nhiều transaction, cần thiết kế cơ chế tiếp tục xử lý trước khi triển khai.
 
-### 4.2. Kiểm soát đồng thời
+### 5.2. Kiểm soát đồng thời
 
-Hai tình huống cần được xử lý:
+Cần xử lý ít nhất hai tình huống:
 
-**Tình huống 1 — Hủy sự kiện đồng thời với xác nhận reservation**
+**Hủy Event đồng thời với xác nhận Reservation**
 
-Một yêu cầu xác nhận reservation và một yêu cầu hủy sự kiện có thể đến gần như đồng thời.
+Không được để Reservation được xác nhận theo một trạng thái Event không còn hợp lệ. Việc kiểm tra Event và cập nhật Reservation phải được phối hợp bằng cơ chế đồng bộ hóa phù hợp.
 
-Hệ thống phải có cơ chế đồng bộ hóa phù hợp ở tầng cơ sở dữ liệu để tránh trường hợp reservation được xác nhận sau khi sự kiện đã bị hủy.
+**Nhiều yêu cầu cùng xử lý một Reservation**
 
-Chỉ kiểm tra trạng thái sự kiện trong Java trước khi cập nhật là chưa đủ, vì trạng thái có thể thay đổi sau lần kiểm tra đó.
+Chỉ một yêu cầu được phép thực hiện chuyển trạng thái và điều chỉnh tồn kho. Các yêu cầu còn lại phải phát hiện trạng thái đã thay đổi và không thực hiện lại phép cập nhật.
 
-**Tình huống 2 — Nhiều yêu cầu cùng hủy một reservation**
+### 5.3. Tính nhất quán
 
-Nếu hai yêu cầu cùng xử lý một reservation, hệ thống chỉ được giải phóng số lượng vé một lần.
-
-Có thể sử dụng cập nhật trạng thái có điều kiện, khóa bản ghi hoặc cơ chế kiểm soát đồng thời phù hợp. Lựa chọn cụ thể cần được kiểm thử bằng các tình huống chạy đồng thời.
-
-### 4.3. Tính nhất quán dữ liệu
-
-Các bất biến cần duy trì:
+Các bất biến tồn kho phải luôn được bảo đảm:
 
 - `held_quantity >= 0`
 - `sold_quantity >= 0`
 - `held_quantity + sold_quantity <= total_quantity`
-- Reservation chỉ chuyển sang trạng thái tiếp theo nếu trạng thái hiện tại phù hợp.
-- Mỗi lần chuyển trạng thái phải đi kèm điều chỉnh tồn kho tương ứng đúng một lần.
-- Reservation đã `CANCELLED` không được xử lý hủy lặp lại như một reservation còn hoạt động.
 
-Các ràng buộc cơ sở dữ liệu hỗ trợ bảo vệ dữ liệu, nhưng không thay thế việc xác định đúng luồng nghiệp vụ và ranh giới giao dịch.
+Vé được giải phóng do Event bị hủy không được phép quay trở lại trạng thái có thể bán trong Event đó.
 
-## 5. Sequence diagram
-
-### 5.1. Hủy sự kiện và xử lý reservation
+## 6. Sequence diagram
 
 ```mermaid
 sequenceDiagram
@@ -209,104 +155,45 @@ sequenceDiagram
     participant Data as Data Layer
     participant DB as PostgreSQL
 
-    Organizer->>API: Yêu cầu hủy sự kiện
+    Organizer->>API: Yêu cầu hủy Event
     API->>Business: cancelEvent(eventId, actorId)
-    Business->>Data: Kiểm tra sự kiện và quyền sở hữu
-    Data->>DB: Đọc Event và thông tin chủ sở hữu
-    DB-->>Data: Dữ liệu sự kiện
+    Business->>Data: Kiểm tra Event và quyền sở hữu
+    Data->>DB: Truy vấn Event
+    DB-->>Data: Dữ liệu Event
     Data-->>Business: Kết quả kiểm tra
 
-    alt Không đủ quyền hoặc không hợp lệ
+    alt Không đủ quyền hoặc Event không hợp lệ
         Business-->>API: Từ chối yêu cầu
         API-->>Organizer: Trả lỗi
-    else Đủ quyền
-        Business->>Data: Cập nhật Event thành CANCELLED
-        Data->>DB: UPDATE Event
-        Business->>Data: Xử lý các Reservation liên quan
-        Data->>DB: Đọc và cập nhật Reservation/Inventory
-        DB-->>Data: Kết quả cập nhật
-        Data-->>Business: Kết quả xử lý
-        Business-->>API: Kết quả hủy sự kiện
-        API-->>Organizer: Trả kết quả
+    else Hợp lệ
+        Business->>Data: Chuyển Event sang CANCELLED
+        Data->>DB: Cập nhật Event
+        Business->>Data: Xử lý Reservation liên quan
+        Data->>DB: Cập nhật Reservation và tồn kho
+        DB-->>Data: Kết quả xử lý
+        Data-->>Business: Kết quả nghiệp vụ
+        Business-->>API: Trả kết quả
+        API-->>Organizer: Kết quả hủy Event
     end
 ```
+Sơ đồ mô tả luồng tổng quát. Nếu xử lý theo nhiều transaction nhỏ, cần bổ sung sơ đồ riêng cho cơ chế tiếp tục xử lý và retry.
 
-Sơ đồ trên mô tả luồng tổng quát. Nếu triển khai xử lý theo nhiều giao dịch nhỏ, cần bổ sung một sequence diagram riêng cho cơ chế tiếp tục xử lý và retry.
-
-### 5.2. Chuyển trạng thái reservation
-
-```mermaid
-stateDiagram-v2
-    [*] --> HELD
-    HELD --> CONFIRMED: Xác nhận reservation
-    HELD --> CANCELLED: Sự kiện bị hủy
-    CONFIRMED --> CANCELLATION_PENDING: Sự kiện bị hủy
-    CANCELLATION_PENDING --> CANCELLED: Xử lý hủy hoàn tất
-    HELD --> EXPIRED: Hết thời gian giữ chỗ
-    HELD --> CANCELLED: Customer hủy reservation
-    CONFIRMED --> CANCELLED: Hủy theo quy trình được phép
-    CANCELLED --> [*]
-    EXPIRED --> [*]
-```
-
-Sơ đồ cần được hiểu trong phạm vi các quy tắc nghiệp vụ đã định nghĩa. Luồng hủy reservation thông thường và luồng hủy do sự kiện bị hủy có thể có điều kiện khác nhau; khi triển khai, cần tránh cho phép mọi tác nhân tự do chuyển trạng thái.
-
-## 6. Ánh xạ vào kiến trúc Hexagonal
-
-### `api`
-
-Chịu trách nhiệm tiếp nhận yêu cầu hủy sự kiện, kiểm tra dữ liệu đầu vào ở mức API và chuyển yêu cầu đến lớp nghiệp vụ.
-
-Không nên đặt toàn bộ quy tắc quyền sở hữu, chuyển trạng thái reservation hoặc điều chỉnh tồn kho tại đây.
-
-### `business`
-
-Chứa quy tắc nghiệp vụ chính:
-
-- Kiểm tra quyền hủy sự kiện và quyền sở hữu.
-- Xác định các trạng thái hợp lệ.
-- Điều phối quá trình xử lý reservation liên quan.
-- Xác định khi nào việc hủy được xem là hoàn tất.
-- Định nghĩa các port cần thiết để truy cập dữ liệu.
-
-Lớp này không phụ thuộc trực tiếp vào Spring Data JPA hoặc Hibernate.
-
-### `data`
-
-Triển khai các adapter truy cập PostgreSQL:
-
-- Đọc và cập nhật sự kiện.
-- Truy vấn các reservation thuộc sự kiện.
-- Cập nhật trạng thái reservation.
-- Điều chỉnh số lượng vé.
-- Triển khai cơ chế khóa hoặc cập nhật có điều kiện theo thiết kế đã chọn.
-
-### `infrastructure`
-
-Chứa các thành phần kỹ thuật hỗ trợ như cấu hình transaction, xử lý tác vụ nền hoặc cơ chế retry nếu quy trình được tách thành nhiều giao dịch.
-
-Không cần đưa Kafka hoặc Redis vào chỉ để triển khai chức năng hủy sự kiện trong MVP. Chỉ bổ sung khi có yêu cầu và lý do kỹ thuật rõ ràng.
 
 ## 7. Các trường hợp lỗi cần kiểm thử
-
-1. Organizer hủy sự kiện do mình sở hữu.
-2. Organizer cố hủy sự kiện của Organizer khác.
-3. Admin hủy sự kiện.
-4. Customer cố hủy sự kiện.
-5. Sự kiện đã `CANCELLED` nhận yêu cầu hủy lần nữa.
-6. Sự kiện bị hủy trong lúc một reservation đang được xác nhận.
-7. Reservation `HELD` được giải phóng tồn kho đúng một lần.
-8. Reservation `CONFIRMED` chuyển sang `CANCELLATION_PENDING`.
-9. Reservation `CANCELLATION_PENDING` được chuyển sang `CANCELLED` sau khi xử lý hoàn tất.
-10. Hai yêu cầu đồng thời cùng xử lý một reservation.
-11. Một thao tác cập nhật tồn kho thất bại giữa chừng.
-12. Hệ thống không thông báo hoàn tiền thành công khi chưa có xác nhận từ quy trình thanh toán.
-
-## 8. Các quyết định cần giữ nhất quán
-
-- `CANCELLATION_PENDING` là trạng thái trung gian.
-- `CANCELLED` là trạng thái kết thúc của quy trình hủy reservation.
-- Hủy sự kiện không đồng nghĩa với hoàn tiền thành công.
-- Việc cập nhật trạng thái và tồn kho phải an toàn khi có yêu cầu đồng thời.
-- Nếu quy trình hủy được chia thành nhiều giao dịch, hệ thống phải hỗ trợ xử lý tiếp và retry an toàn.
-- Khi tích hợp thanh toán, vòng đời hoàn tiền cần được thiết kế riêng, không gộp toàn bộ vào trạng thái reservation.
+1. Organizer hủy Event do mình sở hữu.
+2. Organizer cố hủy Event của Organizer khác.
+3. Admin hủy Event.
+4. Customer cố hủy Event.
+5. Event đã CANCELLED nhận yêu cầu hủy lần nữa.
+6. Event bị hủy đồng thời với việc xác nhận Reservation.
+7. Reservation HELD được giải phóng tồn kho đúng một lần.
+8. Reservation CONFIRMED chuyển sang CANCELLATION_PENDING.
+9. Reservation CANCELLATION_PENDING chuyển sang CANCELLED sau khi cập nhật dữ liệu nội bộ thành công.
+10. Hai yêu cầu cùng xử lý một Reservation.
+11. Transaction thất bại trong quá trình cập nhật tồn kho.
+12. Quy trình không thông báo hoàn tiền thành công khi chưa có xác nhận từ hệ thống thanh toán.
+## 8. Ánh xạ package
+- api: Endpoint hủy Event.
+- business: Kiểm tra quyền, điều phối quy trình hủy và xác định điều kiện chuyển trạng thái.
+- data: Cập nhật Event, Reservation và tồn kho.
+- infrastructure: Hỗ trợ transaction, tác vụ nền hoặc retry nếu quy trình được tách thành nhiều bước.
