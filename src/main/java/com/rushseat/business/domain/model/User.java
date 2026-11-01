@@ -26,6 +26,10 @@ public class User {
 	// các Factory Method rõ nghĩa (register hoặc reconstitute), ngăn chặn việc
 	// tùy tiện tạo đối tượng với dữ liệu nửa vời ở các layer bên ngoài.
 	private User(Long id, String email, String passwordHash, UserRole role, Instant createdAt) {
+		if (id != null && id <= 0) {
+			throw new IllegalArgumentException("id must be greater than 0");
+		}
+
 		this.id = id;
 		this.email = requireNonBlank(email, "Email");
 		this.passwordHash = requireNonBlank(passwordHash, "Password Hash");
