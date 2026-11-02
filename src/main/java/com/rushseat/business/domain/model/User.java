@@ -1,8 +1,11 @@
 package com.rushseat.business.domain.model;
 
+import lombok.Getter;
+
 import java.time.Instant;
 import java.util.Objects;
 
+@Getter
 public class User {
 	private final Long id;
 	private final String email;
@@ -34,7 +37,7 @@ public class User {
 		this.email = requireNonBlank(email, "Email");
 		this.passwordHash = requireNonBlank(passwordHash, "Password Hash");
 		this.role = Objects.requireNonNull(role, "Role must not be null");
-		this.createdAt = Objects.requireNonNull(createdAt, "Created at must not be mull");
+		this.createdAt = Objects.requireNonNull(createdAt, "Created at must not be null");
 	}
 
 	/**
@@ -67,25 +70,5 @@ public class User {
 			throw new IllegalArgumentException(fieldName + " cannot be blank");
 		}
 		return value;
-	}
-
-	public Long getId() {
-		return id;
-	}
-
-	public String getEmail() {
-		return email;
-	}
-
-	public String getPasswordHash() {
-		return passwordHash;
-	}
-
-	public UserRole getRole() {
-		return role;
-	}
-
-	public Instant getCreatedAt() {
-		return createdAt;
 	}
 }
