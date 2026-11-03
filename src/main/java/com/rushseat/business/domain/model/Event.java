@@ -24,7 +24,7 @@ public class Event {
 		// độ dài tên > 200
 		String validName = requireNonBlank(name, "name");
 		if (validName.length() > 200) {
-			throw new IllegalArgumentException("Event name must be less than 200 characters");
+			throw new IllegalArgumentException("Event name name must not exceed 200 characters");
 		}
 
 		// endtime diễn ra trước starttime
@@ -34,8 +34,11 @@ public class Event {
 			throw new IllegalArgumentException("endsAt must be after startsAt ");
 		}
 
+		Long validCreatedById = requirePositiveId(createdById, "createdById");
+
+		// assign
 		this.id = id;
-		this.createdById = requirePositiveId(createdById, "createdById");
+		this.createdById = validCreatedById;
 		this.name = validName;
 		this.description = description;
 		this.status = Objects.requireNonNull(status, "Status must not be null");
@@ -44,12 +47,13 @@ public class Event {
 		this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
 	}
 
-	public static Event create() {
-		// TODO
+	public static Event create(Long createdById, String name, String description, Instant startsAt, Instant endsAt, Instant createdAt) {
+		return new Event(null, createdById, name, description, EventStatus.DRAFT, startsAt, endsAt, createdAt);
 	}
 
-	public static Event reconstitute() {
-		// TODO
+	public static Event reconstitute(Long id, Long createdById, String name, String description, EventStatus status, Instant startsAt, Instant endsAt, Instant createdAt) {
+		Objects.requireNonNull(id, "id must not be null");
+		return new Event(id, createdById, name, description, status, startsAt, endsAt, createdAt);
 	}
 
 	public void updateDetails() {
@@ -86,5 +90,10 @@ public class Event {
 		}
 		return id;
 	}
+
+	private static void validateSchedule(Instant startsAt, Instant endsAt) {
+		// TODO
+	}
+
 
 }
