@@ -506,4 +506,154 @@ class EventTest {
 				() -> assertEquals(endsAt, event.getEndsAt())
 		);
 	}
+
+
+	@Nested
+	class PublishTests {
+
+		@Test
+		void publish_shouldChangeDraftToPublished() {
+			Event event = createDraftEvent();
+
+			event.publish();
+
+			assertEquals(EventStatus.PUBLISHED, event.getStatus());
+		}
+
+		@Test
+		void publish_shouldRejectPublishedEvent() {
+			Event event = createPublishedEvent();
+
+			assertThrows(
+					IllegalStateException.class,
+					event::publish
+			);
+
+			assertEquals(EventStatus.PUBLISHED, event.getStatus());
+		}
+
+		@Test
+		void publish_shouldRejectCancelledEvent() {
+			Event event = createCancelledEvent();
+
+			assertThrows(
+					IllegalStateException.class,
+					event::publish
+			);
+
+			assertEquals(EventStatus.CANCELLED, event.getStatus());
+		}
+	}
+
+	@Nested
+	class CancelTests {
+
+		@Test
+		void cancel_shouldCancelDraftEvent() {
+			Event event = createDraftEvent();
+
+			event.cancel();
+
+			assertEquals(EventStatus.CANCELLED, event.getStatus());
+		}
+
+		@Test
+		void cancel_shouldCancelPublishedEvent() {
+			Event event = createPublishedEvent();
+
+			event.cancel();
+
+			assertEquals(EventStatus.CANCELLED, event.getStatus());
+		}
+
+		@Test
+		void cancel_shouldRejectAlreadyCancelledEvent() {
+			Event event = createCancelledEvent();
+
+			assertThrows(
+					IllegalStateException.class,
+					event::cancel
+			);
+
+			assertEquals(EventStatus.CANCELLED, event.getStatus());
+		}
+	}
+
+	@Nested
+	class CanAcceptReservationsTests {
+
+		@Test
+		void canAcceptReservations_shouldReturnFalseWhenEventIsDraft() {
+			Event event = createDraftEvent();
+
+			Instant now = Instant.parse("2026-11-10T12:00:00Z");
+
+			assertFalse(event.canAcceptReservations(now));
+		}
+
+		@Test
+		void canAcceptReservations_shouldReturnFalseWhenEventIsCancelled() {
+			Event event = createCancelledEvent();
+
+			Instant now = Instant.parse("2026-11-10T12:00:00Z");
+
+			assertFalse(event.canAcceptReservations(now));
+		}
+
+		@Test
+		void canAcceptReservations_shouldReturnFalseBeforeStartTime() {
+			Event event = createPublishedEvent();
+
+			Instant now = Instant.parse("2026-11-10T08:59:59Z");
+
+			assertFalse(event.canAcceptReservations(now));
+		}
+
+		@Test
+		void canAcceptReservations_shouldReturnTrueAtStartTime() {
+			Event event = createPublishedEvent();
+
+			Instant now = startsAt;
+
+			assertTrue(event.canAcceptReservations(now));
+		}
+
+		@Test
+		void canAcceptReservations_shouldReturnTrueDuringEvent() {
+			Event event = createPublishedEvent();
+
+			Instant now = Instant.parse("2026-11-10T12:00:00Z");
+
+			assertTrue(event.canAcceptReservations(now));
+		}
+
+		@Test
+		void canAcceptReservations_shouldReturnFalseAtEndTime() {
+			Event event = createPublishedEvent();
+
+			Instant now = endsAt;
+
+			assertFalse(event.canAcceptReservations(now));
+		}
+
+		@Test
+		void canAcceptReservations_shouldReturnFalseAfterEndTime() {
+			Event event = createPublishedEvent();
+
+			Instant now = Instant.parse("2026-11-10T17:00:01Z");
+
+			assertFalse(event.canAcceptReservations(now));
+		}
+
+		@Test
+		void canAcceptReservations_shouldRejectNullNow() {
+			Event event = createPublishedEvent();
+
+			assertThrows(
+					NullPointerException.class,
+					() -> event.canAcceptReservations(null)
+			);
+		}
+	}
+
 }

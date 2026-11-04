@@ -66,16 +66,25 @@ public class Event {
 	}
 
 	public void publish() {
-		// TODO
+		if (status != EventStatus.DRAFT) {
+			throw new IllegalStateException("Only DRAFT events can be published");
+		}
+		this.status = EventStatus.PUBLISHED;
 	}
 
 	public void cancel() {
-		// TODO
+		if (status == EventStatus.CANCELLED) {
+			throw new IllegalStateException("Only CANCELLED events can be cancelled");
+		}
+		this.status = EventStatus.CANCELLED;
 	}
 
-//	public boolean canAcceptReservations(Instant now) {
-//		// TODO
-//	}
+	public boolean canAcceptReservations(Instant now) {
+		Objects.requireNonNull(now, "now must not be null");
+		// check status event == Publish & startsAt <= now < endsAt
+		// !now biểu thức có dấu bằng
+		return status == EventStatus.PUBLISHED && !now.isBefore(startsAt) && now.isBefore(endsAt);
+	}
 
 	// helper methods
 	private static String requireNonBlank(String value, String fieldName) {
