@@ -21,29 +21,17 @@ public class Event {
 			throw new IllegalArgumentException("Event id must be a positive integer");
 		}
 
-		// độ dài tên > 200
-		String validName = requireNonBlank(name, "name");
-		if (validName.length() > 200) {
-			throw new IllegalArgumentException("Event name name must not exceed 200 characters");
-		}
-
-		// endtime diễn ra trước starttime
-		Instant validStartsAt = Objects.requireNonNull(startsAt,  "startsAt must not be null");
-		Instant validEndsAt = Objects.requireNonNull(endsAt, "endsAt must not be null");
-		if (!validEndsAt.isAfter(validStartsAt)) {
-			throw new IllegalArgumentException("endsAt must be after startsAt ");
-		}
-
 		Long validCreatedById = requirePositiveId(createdById, "createdById");
 
 		// assign
 		this.id = id;
 		this.createdById = validCreatedById;
-		this.name = validName;
+		this.name = validateName(name);
 		this.description = description;
 		this.status = Objects.requireNonNull(status, "Status must not be null");
-		this.startsAt = validStartsAt;
-		this.endsAt = validEndsAt;
+		validateSchedule(startsAt, endsAt);
+		this.startsAt = startsAt;
+		this.endsAt = endsAt;
 		this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
 	}
 
@@ -56,24 +44,46 @@ public class Event {
 		return new Event(id, createdById, name, description, status, startsAt, endsAt, createdAt);
 	}
 
-	public void updateDetails() {
-		// TODO
+	public void updateDetails(String newName, String newDescription) {
+		if (status != EventStatus.DRAFT) {
+			throw new IllegalStateException("Only DRAFT events can be updated");
+		}
+
+		this.name = validateName(newName);
+		this.description = newDescription;
 	}
 
-	public void updateSchedule() {
-		// TODO
+	public void updateSchedule(Instant newStartsAt, Instant newEndsAt) {
+		if (status != EventStatus.DRAFT) {
+			throw new IllegalStateException("Only DRAFT events can be updated");
+		}
+
+		validateSchedule(newStartsAt, newEndsAt);
+
+		// assign
+		this.startsAt = newStartsAt;
+		this.endsAt = newEndsAt;
 	}
 
 	public void publish() {
-		// TODO
+		if (status != EventStatus.DRAFT) {
+			throw new IllegalStateException("Only DRAFT events can be published");
+		}
+		this.status = EventStatus.PUBLISHED;
 	}
 
 	public void cancel() {
-		// TODO
+		if (status == EventStatus.CANCELLED) {
+			throw new IllegalStateException("Only CANCELLED events can be cancelled");
+		}
+		this.status = EventStatus.CANCELLED;
 	}
 
 	public boolean canAcceptReservations(Instant now) {
-		// TODO
+		Objects.requireNonNull(now, "now must not be null");
+		// check status event == Publish & startsAt <= now < endsAt
+		// !now biểu thức có dấu bằng
+		return status == EventStatus.PUBLISHED && !now.isBefore(startsAt) && now.isBefore(endsAt);
 	}
 
 	// helper methods
@@ -92,8 +102,23 @@ public class Event {
 	}
 
 	private static void validateSchedule(Instant startsAt, Instant endsAt) {
-		// TODO
+		// endtime diễn ra trước starttime
+		Objects.requireNonNull(startsAt,  "startsAt must not be null");
+		Objects.requireNonNull(endsAt, "endsAt must not be null");
+		if (!endsAt.isAfter(startsAt)) {
+			throw new IllegalArgumentException("endsAt must be after startsAt ");
+		}
 	}
 
+	// check if name exceed 200 characters
+	private static String validateName(String name) {
+		String validName = requireNonBlank(name, "name");
+
+		if (validName.length() > 200) {
+			throw new IllegalArgumentException("Event name must not exceed 200 characters");
+		}
+
+		return validName;
+	}
 
 }
