@@ -30,6 +30,8 @@ public class Event {
 		this.description = description;
 		this.status = Objects.requireNonNull(status, "Status must not be null");
 		validateSchedule(startsAt, endsAt);
+		this.startsAt = startsAt;
+		this.endsAt = endsAt;
 		this.createdAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
 	}
 
@@ -71,9 +73,9 @@ public class Event {
 		// TODO
 	}
 
-	public boolean canAcceptReservations(Instant now) {
-		// TODO
-	}
+//	public boolean canAcceptReservations(Instant now) {
+//		// TODO
+//	}
 
 	// helper methods
 	private static String requireNonBlank(String value, String fieldName) {
@@ -92,9 +94,9 @@ public class Event {
 
 	private static void validateSchedule(Instant startsAt, Instant endsAt) {
 		// endtime diễn ra trước starttime
-		Instant validStartsAt = Objects.requireNonNull(startsAt,  "startsAt must not be null");
-		Instant validEndsAt = Objects.requireNonNull(endsAt, "endsAt must not be null");
-		if (!validEndsAt.isAfter(validStartsAt)) {
+		Objects.requireNonNull(startsAt,  "startsAt must not be null");
+		Objects.requireNonNull(endsAt, "endsAt must not be null");
+		if (!endsAt.isAfter(startsAt)) {
 			throw new IllegalArgumentException("endsAt must be after startsAt ");
 		}
 	}
