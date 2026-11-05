@@ -48,19 +48,23 @@ public class TicketType {
 	}
 
 	public static TicketType create(Long eventId, String name, String description, long price, int totalQuantity, Instant createdAt) {
-		// TODO
+		return new TicketType(null, eventId, name, description, price, totalQuantity, 0, 0, createdAt);
 	}
 
 	public static TicketType reconstitute(Long id, Long eventId, String name, String description, long price, int totalQuantity, int heldQuantity, int soldQuantity, Instant createdAt) {
-		// TODO
+		Objects.requireNonNull(eventId, "Id must not be null");
+		return new TicketType(id, eventId, name, description, price, totalQuantity, heldQuantity, soldQuantity, createdAt);
 	}
 
 	public void updateDetails(String newName, String newDescription) {
-		// TODO
+		validateName(newName);
+		this.name = newName;
+		this.description = newDescription;
 	}
 
 	public void updatePrice(long newPrice) {
-		// TODO
+		validatePrice(newPrice);
+		this.price = newPrice;
 	}
 
 	// validation
