@@ -12,7 +12,6 @@ public class ReservationItem {
 		// TODO: validate ticketTypeId
 		// TODO: validate quantity
 		// TODO: validate unitPrice
-
 		this.id = id;
 		this.ticketTypeId = ticketTypeId;
 		this.quantity = quantity;
