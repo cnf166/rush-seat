@@ -89,7 +89,6 @@ public class Reservation {
 	}
 
 	public void expire(Instant now) {
-		// Validate now
 		validateTransitionTime(now);
 		// Validate current status
 		// Reject if now < expiresAt

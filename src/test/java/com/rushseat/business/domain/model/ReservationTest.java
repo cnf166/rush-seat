@@ -35,10 +35,7 @@ class ReservationTest {
 	private static final Instant AFTER_EXPIRATION =
 			Instant.parse("2026-11-01T10:06:00Z");
 
-
-	// =========================================================
 	// Test fixtures
-	// =========================================================
 
 	private ReservationItem createItem(
 			Long ticketTypeId,
@@ -78,10 +75,8 @@ class ReservationTest {
 		);
 	}
 
-
-	// =========================================================
-	// BATCH A: Construction & Invariants
-	// =========================================================
+	
+	// Construction & Invariants
 
 	@Nested
 	class CreateTests {
@@ -608,9 +603,9 @@ class ReservationTest {
 	}
 
 
-	// =========================================================
-	// BATCH B: Behavior & State Transitions
-	// =========================================================
+	
+	// Behavior & State Transitions
+	
 
 	@Nested
 	class GetTotalAmountTests {
