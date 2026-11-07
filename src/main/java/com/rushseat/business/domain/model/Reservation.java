@@ -49,6 +49,60 @@ public class Reservation {
 		return new Reservation(id, userId, eventId, items, status, createdAt, expiresAt, updatedAt);
 	}
 
+	public long getTotalAmount() {
+		long totalAmount = 0L;
+		for (ReservationItem item : items) {
+			totalAmount = Math.addExact(totalAmount, item.getSubtotal());
+		}
+		return totalAmount;
+	}
+
+	public void confirm(Instant now) {
+		// Validate now
+		validateTransitionTime(now);
+		// Validate current status
+		// Check expiration (updatedAt  <= now < expireAt)
+		requireHeldStatus();
+		if (!now.isBefore(expiresAt)) {
+			throw new IllegalStateException("Reservation has expired");
+		}
+
+		// Change status
+		// Update updatedAt
+		status = ReservationStatus.CONFIRMED;
+		updatedAt = now;
+	}
+
+	public void cancel(Instant now) {
+		validateTransitionTime(now);
+		// Validate current status
+		// Reject if now >= expiresAt
+		requireHeldStatus();
+		if (!now.isBefore(expiresAt)) {
+			throw new IllegalStateException("Reservation has expired");
+		}
+
+		// Change status to CANCELLED
+		// Update updatedAt
+		status = ReservationStatus.CANCELLED;
+		updatedAt = now;
+	}
+
+	public void expire(Instant now) {
+		validateTransitionTime(now);
+		// Validate current status
+		// Reject if now < expiresAt
+		requireHeldStatus();
+		if (now.isBefore(expiresAt)) {
+			throw new IllegalStateException("Reservation is not expired yet");
+		}
+		// Change status to EXPIRED
+		status = ReservationStatus.EXPIRED;
+		updatedAt = now;
+		// Update updatedAt
+	}
+
+	// override Getter annotation method
 	public List<ReservationItem> getItems() {
 		return Collections.unmodifiableList(items);
 	}
@@ -93,6 +147,23 @@ public class Reservation {
 
 		if (updatedAt.isBefore(createdAt)) {
 			throw new IllegalArgumentException("updatedAt must not be before createdAt");
+		}
+	}
+
+	private void validateTransitionTime(Instant now) {
+		// Validate now
+		Objects.requireNonNull(now, "now must not be null");
+		// Validate that now is not before updatedAt
+		if (now.isBefore(updatedAt)) {
+			throw new IllegalArgumentException("now must not be before updatedAt");
+		}
+	}
+
+	// check ReservationStatus == HELD
+	private void requireHeldStatus() {
+		// Require current status to be HELD
+		if (status != ReservationStatus.HELD) {
+			throw new IllegalStateException("Reservation must be in HELD status");
 		}
 	}
 }
