@@ -1,8 +1,11 @@
 package com.rushseat.business.domain.model;
 
+import lombok.Getter;
+
 import java.time.Instant;
 import java.util.Objects;
 
+@Getter
 public class TicketType {
 	private final Long id;
 	private final Long eventId;
@@ -52,7 +55,7 @@ public class TicketType {
 	}
 
 	public static TicketType reconstitute(Long id, Long eventId, String name, String description, long price, int totalQuantity, int heldQuantity, int soldQuantity, Instant createdAt) {
-		Objects.requireNonNull(eventId, "Id must not be null");
+		Objects.requireNonNull(id, "Id must not be null");
 		return new TicketType(id, eventId, name, description, price, totalQuantity, heldQuantity, soldQuantity, createdAt);
 	}
 
