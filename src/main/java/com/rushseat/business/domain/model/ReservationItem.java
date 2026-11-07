@@ -1,5 +1,7 @@
 package com.rushseat.business.domain.model;
 
+import java.util.Objects;
+
 public class ReservationItem {
 	private final Long id;
 	private final Long ticketTypeId;
@@ -19,14 +21,17 @@ public class ReservationItem {
 	}
 
 	public static ReservationItem create(Long ticketTypeId, int quantity, long unitPrice) {
-		// TODO
+		return new ReservationItem(null, ticketTypeId, quantity, unitPrice);
 	}
 
 	public static ReservationItem reconstitute(Long id, Long ticketTypeId, int quantity, long unitPrice) {
-		// TODO
+		Objects.requireNonNull(id, "Id must not be null");
+		return new ReservationItem(id, ticketTypeId, quantity, unitPrice);
 	}
 
 	public long getSubtotal() {
-		// TODO
+		return Math.multiplyExact((long) quantity, unitPrice);
 	}
+
+	// validation
 }
