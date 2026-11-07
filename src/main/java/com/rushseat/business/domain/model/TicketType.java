@@ -1,5 +1,11 @@
 package com.rushseat.business.domain.model;
 
+import lombok.Getter;
+
+import java.time.Instant;
+import java.util.Objects;
+
+@Getter
 public class TicketType {
 	private final Long id;
 	private final Long eventId;
@@ -12,20 +18,157 @@ public class TicketType {
 	private int heldQuantity;
 	private int soldQuantity;
 
+	private final Instant createdAt;
+
 	// Creation & Information
 
-
-	private TicketType(Long id, Long eventId, String name, String description, long price, int totalQuantity, int heldQuantity, int soldQuantity) {
+	private TicketType(Long id, Long eventId, String name, String description, long price, int totalQuantity, int heldQuantity, int soldQuantity, Instant createdAt) {
+		// validate identity
 		if (id != null && id <= 0) {
-			throw new IllegalArgumentException("TicketType id is null or empty");
+			throw new IllegalArgumentException("TicketType id must be greater than 0");
 		}
+
+		Long validEventId = requirePositiveId(eventId, "eventId");
+
+		// validate info
+		String validName = validateName(name);
+		long validPrice = validatePrice(price);
+
+		// validate inventory
+		validateInventory(totalQuantity, heldQuantity, soldQuantity);
+
+		Instant validateCreatedAt = Objects.requireNonNull(createdAt, "createdAt must not be null");
+
 		this.id = id;
-		this.eventId = eventId;
-		this.name = name;
+		this.eventId = validEventId;
+		this.name = validName;
 		this.description = description;
-		this.price = price;
+		this.price = validPrice;
 		this.totalQuantity = totalQuantity;
 		this.heldQuantity = heldQuantity;
 		this.soldQuantity = soldQuantity;
+		this.createdAt = validateCreatedAt;
+	}
+
+	public static TicketType create(Long eventId, String name, String description, long price, int totalQuantity, Instant createdAt) {
+		return new TicketType(null, eventId, name, description, price, totalQuantity, 0, 0, createdAt);
+	}
+
+	public static TicketType reconstitute(Long id, Long eventId, String name, String description, long price, int totalQuantity, int heldQuantity, int soldQuantity, Instant createdAt) {
+		Objects.requireNonNull(id, "Id must not be null");
+		return new TicketType(id, eventId, name, description, price, totalQuantity, heldQuantity, soldQuantity, createdAt);
+	}
+
+	public void updateDetails(String newName, String newDescription) {
+		validateName(newName);
+		this.name = newName;
+		this.description = newDescription;
+	}
+
+	public void updatePrice(long newPrice) {
+		validatePrice(newPrice);
+		this.price = newPrice;
+	}
+
+	public int getAvailableQuantity() {
+		// return sum of: total - held - sold
+		return totalQuantity - heldQuantity - soldQuantity;
+	}
+
+	public void hold(int quantity) {
+		// validate quantity
+		if (quantity <= 0) {
+			throw new IllegalArgumentException("Quantity must be greater than 0");
+		}
+		// check available inventory
+		int availableQuantity = getAvailableQuantity();
+		if (availableQuantity < quantity) {
+			throw new IllegalStateException("Not enough available tickets");
+		}
+
+		heldQuantity += quantity;
+	}
+
+	public void release(int quantity) {
+		// validate quantity
+		if (quantity <= 0) {
+			throw new IllegalArgumentException("Quantity must be greater than 0");
+		}
+
+		// check held inventory
+		// decrease held quantity
+		if (heldQuantity < quantity) {
+			throw new IllegalStateException("Not enough held tickets to be released");
+		}
+
+		heldQuantity -= quantity;
+	}
+
+	public void sell(int quantity) {
+		// validate quantity
+		if (quantity <= 0) {
+			throw new IllegalArgumentException("Quantity must be greater than 0");
+		}
+
+		// check held inventory
+		// decrease held quantity
+		// increase sold quantity
+		if (heldQuantity < quantity) {
+			throw new IllegalStateException("Not enough held tickets to be sold");
+		}
+		heldQuantity -= quantity;
+		soldQuantity += quantity;
+	}
+
+	// validation
+
+	private static String validateName(String name) {
+		String validName = requireNonBlank(name, "name");
+
+		if (validName.length() > 100) {
+			throw new IllegalArgumentException("TicketType name must not exceed 100 characters");
+		}
+
+		return validName;
+	}
+
+	private static void validateInventory(int totalQuantity, int heldQuantity, int soldQuantity) {
+		if (totalQuantity < 0) {
+			throw new IllegalArgumentException("Total quantity must be greater than 0");
+		}
+
+		if (heldQuantity < 0) {
+			throw new IllegalArgumentException("Held quantity must be greater than 0");
+		}
+
+		if (soldQuantity < 0) {
+			throw new IllegalArgumentException("Sold quantity must be greater than 0");
+		}
+
+		if ((long) soldQuantity + heldQuantity > totalQuantity) {
+			throw new IllegalArgumentException("Sum of sold quantity and held quantity cannot exceed total quantity");
+		}
+
+	}
+
+	private static long validatePrice(long price) {
+		if (price < 0) {
+			throw new IllegalArgumentException("Price cannot be negative");
+		}
+		return price;
+	}
+
+	private static String requireNonBlank(String value, String fieldName) {
+		if (value == null || value.isBlank()) {
+			throw new IllegalArgumentException(fieldName + " cannot be blank");
+		}
+		return value;
+	}
+
+	private static Long requirePositiveId(Long id, String fieldName) {
+		if (id == null || id <= 0) {
+			throw new IllegalArgumentException(fieldName + " must be greater than 0");
+		}
+		return id;
 	}
 }
