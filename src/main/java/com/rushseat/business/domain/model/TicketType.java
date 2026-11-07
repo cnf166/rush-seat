@@ -70,6 +70,56 @@ public class TicketType {
 		this.price = newPrice;
 	}
 
+	public int getAvailableQuantity() {
+		// return sum of: total - held - sold
+		return totalQuantity - heldQuantity - soldQuantity;
+	}
+
+	public void hold(int quantity) {
+		// validate quantity
+		if (quantity <= 0) {
+			throw new IllegalArgumentException("Quantity must be greater than 0");
+		}
+		// check available inventory
+		int availableQuantity = getAvailableQuantity();
+		if (availableQuantity < quantity) {
+			throw new IllegalStateException("Not enough available tickets");
+		}
+
+		heldQuantity += quantity;
+	}
+
+	public void release(int quantity) {
+		// validate quantity
+		if (quantity <= 0) {
+			throw new IllegalArgumentException("Quantity must be greater than 0");
+		}
+
+		// check held inventory
+		// decrease held quantity
+		if (heldQuantity < quantity) {
+			throw new IllegalStateException("Not enough held tickets to be released");
+		}
+
+		heldQuantity -= quantity;
+	}
+
+	public void sell(int quantity) {
+		// validate quantity
+		if (quantity <= 0) {
+			throw new IllegalArgumentException("Quantity must be greater than 0");
+		}
+
+		// check held inventory
+		// decrease held quantity
+		// increase sold quantity
+		if (heldQuantity < quantity) {
+			throw new IllegalStateException("Not enough held tickets to be sold");
+		}
+		heldQuantity -= quantity;
+		soldQuantity += quantity;
+	}
+
 	// validation
 
 	private static String validateName(String name) {
