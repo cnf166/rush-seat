@@ -26,6 +26,7 @@ CREATE TABLE ticket_types (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     event_id BIGINT NOT NULL REFERENCES events(id),
     name VARCHAR(100) NOT NULL,
+    description TEXT,
     price NUMERIC(15, 0) NOT NULL
         CHECK (price >= 0),
     total_quantity INTEGER NOT NULL
@@ -34,6 +35,7 @@ CREATE TABLE ticket_types (
         CHECK (held_quantity >= 0),
     sold_quantity INTEGER NOT NULL DEFAULT 0
         CHECK (sold_quantity >= 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT chk_ticket_inventory
         CHECK (held_quantity + sold_quantity <= total_quantity),
