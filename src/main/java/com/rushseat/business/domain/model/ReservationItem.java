@@ -1,7 +1,10 @@
 package com.rushseat.business.domain.model;
 
+import lombok.Getter;
+
 import java.util.Objects;
 
+@Getter
 public class ReservationItem {
 	private final Long id;
 	private final Long ticketTypeId;
@@ -10,12 +13,21 @@ public class ReservationItem {
 	private final long unitPrice;
 
 	private ReservationItem(Long id, Long ticketTypeId, int quantity, long unitPrice) {
-		// TODO: validate identity
-		// TODO: validate ticketTypeId
-		// TODO: validate quantity
-		// TODO: validate unitPrice
+		// validate identity, ticketTypeId, quantity, unitPrice
+		if (id != null && id <= 0) {
+			throw new IllegalArgumentException("ReservationItem id must be greater than 0");
+		}
+
+		Long validTicketTypeId = requirePositiveId(ticketTypeId, "ticketTypeId");
+		if (quantity <= 0) {
+			throw new IllegalArgumentException("ReservationItem quantity must be greater than 0");
+		}
+
+		if (unitPrice < 0) {
+			throw new IllegalArgumentException("ReservationItem unitPrice must be greater or equal to 0");
+		}
 		this.id = id;
-		this.ticketTypeId = ticketTypeId;
+		this.ticketTypeId = validTicketTypeId;
 		this.quantity = quantity;
 		this.unitPrice = unitPrice;
 	}
@@ -25,13 +37,20 @@ public class ReservationItem {
 	}
 
 	public static ReservationItem reconstitute(Long id, Long ticketTypeId, int quantity, long unitPrice) {
-		Objects.requireNonNull(id, "Id must not be null");
+		Objects.requireNonNull(id, "ReservationItem id must not be null");
 		return new ReservationItem(id, ticketTypeId, quantity, unitPrice);
 	}
 
 	public long getSubtotal() {
-		return Math.multiplyExact((long) quantity, unitPrice);
+		return Math.multiplyExact((long) quantity, unitPrice); // throw ArithmeticException if overflow
 	}
 
 	// validation
+	private static Long requirePositiveId(Long id, String fieldName) {
+		if (id == null || id <= 0) {
+			throw new IllegalArgumentException(fieldName + " must be greater than 0");
+		}
+		return id;
+	}
+
 }
