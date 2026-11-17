@@ -1,6 +1,7 @@
 package com.rushseat.business.domain.model;
 
 
+import com.rushseat.business.domain.enums.UserRole;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;

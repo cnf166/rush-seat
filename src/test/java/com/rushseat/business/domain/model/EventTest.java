@@ -1,5 +1,6 @@
 package com.rushseat.business.domain.model;
 
+import com.rushseat.business.domain.enums.EventStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
