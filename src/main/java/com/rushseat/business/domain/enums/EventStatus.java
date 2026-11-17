@@ -1,4 +1,4 @@
-package com.rushseat.business.domain.model;
+package com.rushseat.business.domain.enums;
 
 public enum EventStatus {
 	DRAFT,
