@@ -1,6 +1,7 @@
 
 package com.rushseat.business.domain.model;
 
+import com.rushseat.business.domain.enums.ReservationStatus;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 

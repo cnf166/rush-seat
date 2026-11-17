@@ -1,5 +1,6 @@
 package com.rushseat.business.domain.model;
 
+import com.rushseat.business.domain.enums.EventStatus;
 import lombok.Getter;
 
 import java.time.Instant;
