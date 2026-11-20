@@ -37,5 +37,20 @@ dependencies {
 }
 
 tasks.withType<Test> {
-	useJUnitPlatform()
+    useJUnitPlatform()
+
+    environment(
+        "DB_URL",
+        providers.gradleProperty("DB_URL").get()
+    )
+
+    environment(
+        "DB_USERNAME",
+        providers.gradleProperty("DB_USERNAME").get()
+    )
+
+    environment(
+        "DB_PASSWORD",
+        providers.gradleProperty("DB_PASSWORD").get()
+    )
 }
