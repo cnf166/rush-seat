@@ -3,6 +3,7 @@ package com.rushseat.data.entity;
 import jakarta.persistence.*;
 import lombok.Getter;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 @Getter
@@ -23,8 +24,8 @@ public class TicketTypeEntity {
 	@Column(columnDefinition = "TEXT")
 	private String description;
 
-	@Column(name = "price", nullable = false)
-	private Long price;
+	@Column(name = "price", nullable = false, precision = 15, scale = 0)
+	private BigDecimal price;
 
 	@Column(name = "total_quantity", nullable = false)
 	private Integer totalQuantity;
@@ -42,7 +43,7 @@ public class TicketTypeEntity {
 	// JPA
 	}
 
-	public TicketTypeEntity(Long id, Long eventId, String name, String description, Long price, Integer totalQuantity, Integer heldQuantity, Integer soldQuantity, Instant createdAt) {
+	public TicketTypeEntity(Long id, Long eventId, String name, String description, BigDecimal price, Integer totalQuantity, Integer heldQuantity, Integer soldQuantity, Instant createdAt) {
 		this.id = id;
 		this.eventId = eventId;
 		this.name = name;
