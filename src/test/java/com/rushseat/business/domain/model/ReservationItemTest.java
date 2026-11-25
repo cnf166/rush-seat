@@ -1,227 +1,212 @@
+
 package com.rushseat.business.domain.model;
 
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import java.math.BigDecimal;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ReservationItemTest {
 
-	private static final Long ID = 1L;
-	private static final Long TICKET_TYPE_ID = 10L;
+	private static final Long TICKET_TYPE_ID = 1L;
 
-	private static final int QUANTITY = 2;
-	private static final long UNIT_PRICE = 150_000L;
+	// Creation
 
-	private ReservationItem createReservationItem() {
-		return ReservationItem.create(
+	@Test
+	void create_shouldCreateReservationItem() {
+		ReservationItem item = ReservationItem.create(
 				TICKET_TYPE_ID,
-				QUANTITY,
-				UNIT_PRICE
+				2,
+				new BigDecimal("500000")
 		);
+
+		assertThat(item.getId()).isNull();
+		assertThat(item.getTicketTypeId()).isEqualTo(TICKET_TYPE_ID);
+		assertThat(item.getQuantity()).isEqualTo(2);
+		assertThat(item.getUnitPrice())
+				.isEqualByComparingTo("500000");
 	}
 
-	private ReservationItem createReconstitutedReservationItem() {
-		return ReservationItem.reconstitute(
-				ID,
+	@Test
+	void create_shouldCalculateSubtotal() {
+		ReservationItem item = ReservationItem.create(
 				TICKET_TYPE_ID,
-				QUANTITY,
-				UNIT_PRICE
+				2,
+				new BigDecimal("500000")
 		);
+
+		assertThat(item.getSubtotal())
+				.isEqualByComparingTo("1000000");
 	}
 
-	// Create
+	@Test
+	void create_shouldAcceptZeroUnitPrice() {
+		ReservationItem item = ReservationItem.create(
+				TICKET_TYPE_ID,
+				2,
+				BigDecimal.ZERO
+		);
 
-	@Nested
-	class CreateTests {
+		assertThat(item.getUnitPrice())
+				.isEqualByComparingTo("0");
 
-		@Test
-		void shouldCreateReservationItem() {
-			ReservationItem item = createReservationItem();
-
-			assertAll(
-					() -> assertNull(item.getId()),
-					() -> assertEquals(TICKET_TYPE_ID, item.getTicketTypeId()),
-					() -> assertEquals(QUANTITY, item.getQuantity()),
-					() -> assertEquals(UNIT_PRICE, item.getUnitPrice())
-			);
-		}
-
-		@Test
-		void shouldAllowZeroUnitPrice() {
-			ReservationItem item = ReservationItem.create(
-					TICKET_TYPE_ID,
-					QUANTITY,
-					0
-			);
-
-			assertEquals(0, item.getUnitPrice());
-		}
-
-		@Test
-		void shouldThrowExceptionWhenTicketTypeIdIsNull() {
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ReservationItem.create(
-							null, QUANTITY, UNIT_PRICE
-					)
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenTicketTypeIdIsZero() {
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ReservationItem.create(
-							0L, QUANTITY, UNIT_PRICE
-					)
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenTicketTypeIdIsNegative() {
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ReservationItem.create(
-							-1L, QUANTITY, UNIT_PRICE
-					)
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenQuantityIsZero() {
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ReservationItem.create(
-							TICKET_TYPE_ID, 0, UNIT_PRICE
-					)
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenQuantityIsNegative() {
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ReservationItem.create(
-							TICKET_TYPE_ID, -1, UNIT_PRICE
-					)
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenUnitPriceIsNegative() {
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ReservationItem.create(
-							TICKET_TYPE_ID, QUANTITY, -1
-					)
-			);
-		}
+		assertThat(item.getSubtotal())
+				.isEqualByComparingTo("0");
 	}
 
-	// Reconstitute
+	// Reconstitution
 
-	@Nested
-	class ReconstituteTests {
+	@Test
+	void reconstitute_shouldRestoreReservationItem() {
+		ReservationItem item = ReservationItem.reconstitute(
+				10L,
+				TICKET_TYPE_ID,
+				3,
+				new BigDecimal("200000")
+		);
 
-		@Test
-		void shouldReconstituteReservationItem() {
-			ReservationItem item = createReconstitutedReservationItem();
-
-			assertAll(
-					() -> assertEquals(ID, item.getId()),
-					() -> assertEquals(TICKET_TYPE_ID, item.getTicketTypeId()),
-					() -> assertEquals(QUANTITY, item.getQuantity()),
-					() -> assertEquals(UNIT_PRICE, item.getUnitPrice())
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenIdIsNull() {
-			assertThrows(
-					NullPointerException.class,
-					() -> ReservationItem.reconstitute(
-							null,
-							TICKET_TYPE_ID,
-							QUANTITY,
-							UNIT_PRICE
-					)
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenIdIsZero() {
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ReservationItem.reconstitute(
-							0L,
-							TICKET_TYPE_ID,
-							QUANTITY,
-							UNIT_PRICE
-					)
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenIdIsNegative() {
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ReservationItem.reconstitute(
-							-1L,
-							TICKET_TYPE_ID,
-							QUANTITY,
-							UNIT_PRICE
-					)
-			);
-		}
+		assertThat(item.getId()).isEqualTo(10L);
+		assertThat(item.getTicketTypeId()).isEqualTo(TICKET_TYPE_ID);
+		assertThat(item.getQuantity()).isEqualTo(3);
+		assertThat(item.getUnitPrice())
+				.isEqualByComparingTo("200000");
+		assertThat(item.getSubtotal())
+				.isEqualByComparingTo("600000");
 	}
 
-	// Subtotal
+	// Identity validation
 
-	@Nested
-	class SubtotalTests {
+	@Test
+	void create_shouldRejectInvalidTicketTypeId() {
+		assertThatThrownBy(() ->
+				ReservationItem.create(
+						null,
+						2,
+						new BigDecimal("500000")
+				)
+		).isInstanceOf(IllegalArgumentException.class);
+	}
 
-		@Test
-		void shouldCalculateSubtotal() {
-			ReservationItem item = createReservationItem();
+	@Test
+	void reconstitute_shouldRejectNullId() {
+		assertThatThrownBy(() ->
+				ReservationItem.reconstitute(
+						null,
+						TICKET_TYPE_ID,
+						2,
+						new BigDecimal("500000")
+				)
+		).isInstanceOf(NullPointerException.class);
+	}
 
-			assertEquals(300_000L, item.getSubtotal());
-		}
+	@Test
+	void reconstitute_shouldRejectNonPositiveId() {
+		assertThatThrownBy(() ->
+				ReservationItem.reconstitute(
+						0L,
+						TICKET_TYPE_ID,
+						2,
+						new BigDecimal("500000")
+				)
+		).isInstanceOf(IllegalArgumentException.class);
+	}
 
-		@Test
-		void shouldReturnZeroWhenUnitPriceIsZero() {
-			ReservationItem item = ReservationItem.create(
-					TICKET_TYPE_ID,
-					QUANTITY,
-					0
-			);
+	// Quantity validation
 
-			assertEquals(0L, item.getSubtotal());
-		}
+	@Test
+	void create_shouldRejectZeroQuantity() {
+		assertThatThrownBy(() ->
+				ReservationItem.create(
+						TICKET_TYPE_ID,
+						0,
+						new BigDecimal("500000")
+				)
+		).isInstanceOf(IllegalArgumentException.class);
+	}
 
-		@Test
-		void shouldCalculateLargeSubtotalWithoutOverflow() {
-			ReservationItem item = ReservationItem.create(
-					TICKET_TYPE_ID,
-					Integer.MAX_VALUE,
-					1
-			);
+	@Test
+	void create_shouldRejectNegativeQuantity() {
+		assertThatThrownBy(() ->
+				ReservationItem.create(
+						TICKET_TYPE_ID,
+						-1,
+						new BigDecimal("500000")
+				)
+		).isInstanceOf(IllegalArgumentException.class);
+	}
 
-			assertEquals((long) Integer.MAX_VALUE, item.getSubtotal());
-		}
+	// Unit price validation
 
-		@Test
-		void shouldThrowExceptionWhenSubtotalOverflows() {
-			ReservationItem item = ReservationItem.create(
-					TICKET_TYPE_ID,
-					Integer.MAX_VALUE,
-					Long.MAX_VALUE
-			);
+	@Test
+	void create_shouldRejectNullUnitPrice() {
+		assertThatThrownBy(() ->
+				ReservationItem.create(
+						TICKET_TYPE_ID,
+						2,
+						null
+				)
+		).isInstanceOf(NullPointerException.class);
+	}
 
-			assertThrows(
-					ArithmeticException.class,
-					item::getSubtotal
-			);
-		}
+	@Test
+	void create_shouldRejectNegativeUnitPrice() {
+		assertThatThrownBy(() ->
+				ReservationItem.create(
+						TICKET_TYPE_ID,
+						2,
+						new BigDecimal("-100")
+				)
+		).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void create_shouldAcceptUnitPriceWithZeroFractionalDigits() {
+		ReservationItem item = ReservationItem.create(
+				TICKET_TYPE_ID,
+				2,
+				new BigDecimal("500000.00")
+		);
+
+		assertThat(item.getUnitPrice())
+				.isEqualByComparingTo("500000");
+	}
+
+	@Test
+	void create_shouldRejectUnitPriceWithNonZeroFractionalDigits() {
+		assertThatThrownBy(() ->
+				ReservationItem.create(
+						TICKET_TYPE_ID,
+						2,
+						new BigDecimal("500000.50")
+				)
+		).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void create_shouldRejectUnitPriceExceedingPrecision15() {
+		assertThatThrownBy(() ->
+				ReservationItem.create(
+						TICKET_TYPE_ID,
+						2,
+						new BigDecimal("1000000000000000")
+				)
+		).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	// Subtotal calculation
+
+	@Test
+	void getSubtotal_shouldCalculateLargeAmountWithoutOverflow() {
+		ReservationItem item = ReservationItem.create(
+				TICKET_TYPE_ID,
+				Integer.MAX_VALUE,
+				new BigDecimal("999999999999999")
+		);
+
+		assertThat(item.getSubtotal()).isEqualByComparingTo(
+				new BigDecimal("2147483646999997852516353")
+		);
 	}
 }

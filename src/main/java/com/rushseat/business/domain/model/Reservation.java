@@ -3,6 +3,7 @@ package com.rushseat.business.domain.model;
 import com.rushseat.business.domain.enums.ReservationStatus;
 import lombok.Getter;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.*;
 
@@ -50,12 +51,10 @@ public class Reservation {
 		return new Reservation(id, userId, eventId, items, status, createdAt, expiresAt, updatedAt);
 	}
 
-	public long getTotalAmount() {
-		long totalAmount = 0L;
-		for (ReservationItem item : items) {
-			totalAmount = Math.addExact(totalAmount, item.getSubtotal());
-		}
-		return totalAmount;
+	public BigDecimal getTotalAmount() {
+		return items.stream()
+				.map(ReservationItem::getSubtotal)
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
 	}
 
 	public void confirm(Instant now) {

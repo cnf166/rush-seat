@@ -5,6 +5,7 @@ import com.rushseat.business.domain.enums.ReservationStatus;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,8 +31,7 @@ class ReservationTest {
 	private static final Instant BEFORE_EXPIRATION =
 			Instant.parse("2026-11-01T10:04:59Z");
 
-	private static final Instant AT_EXPIRATION =
-			EXPIRES_AT;
+	private static final Instant AT_EXPIRATION = EXPIRES_AT;
 
 	private static final Instant AFTER_EXPIRATION =
 			Instant.parse("2026-11-01T10:06:00Z");
@@ -46,7 +46,7 @@ class ReservationTest {
 		return ReservationItem.create(
 				ticketTypeId,
 				quantity,
-				unitPrice
+				BigDecimal.valueOf(unitPrice)
 		);
 	}
 
@@ -76,7 +76,16 @@ class ReservationTest {
 		);
 	}
 
-	
+	private void assertAmountEquals(
+			String expected,
+			BigDecimal actual
+	) {
+		assertEquals(
+				0,
+				new BigDecimal(expected).compareTo(actual)
+		);
+	}
+
 	// Construction & Invariants
 
 	@Nested
@@ -118,7 +127,6 @@ class ReservationTest {
 			);
 		}
 	}
-
 
 	@Nested
 	class ReconstituteTests {
@@ -221,7 +229,6 @@ class ReservationTest {
 		}
 	}
 
-
 	@Nested
 	class IdentityTests {
 
@@ -310,7 +317,6 @@ class ReservationTest {
 		}
 	}
 
-
 	@Nested
 	class ItemsTests {
 
@@ -395,7 +401,6 @@ class ReservationTest {
 		}
 	}
 
-
 	@Nested
 	class ItemsImmutabilityTests {
 
@@ -450,7 +455,6 @@ class ReservationTest {
 			);
 		}
 	}
-
 
 	@Nested
 	class TimestampTests {
@@ -581,7 +585,6 @@ class ReservationTest {
 		}
 	}
 
-
 	@Nested
 	class StatusTests {
 
@@ -603,10 +606,7 @@ class ReservationTest {
 		}
 	}
 
-
-	
 	// Behavior & State Transitions
-	
 
 	@Nested
 	class GetTotalAmountTests {
@@ -615,7 +615,7 @@ class ReservationTest {
 		void shouldCalculateTotalAmountForSingleItem() {
 			Reservation reservation = createValidReservation();
 
-			assertEquals(200_000L, reservation.getTotalAmount());
+			assertAmountEquals("200000", reservation.getTotalAmount());
 		}
 
 		@Test
@@ -632,7 +632,7 @@ class ReservationTest {
 					EXPIRES_AT
 			);
 
-			assertEquals(650_000L, reservation.getTotalAmount());
+			assertAmountEquals("650000", reservation.getTotalAmount());
 		}
 
 		@Test
@@ -648,38 +648,13 @@ class ReservationTest {
 					EXPIRES_AT
 			);
 
-			assertEquals(0L, reservation.getTotalAmount());
+			assertAmountEquals("0", reservation.getTotalAmount());
 		}
 
 		@Test
-		void shouldThrowArithmeticExceptionWhenSubtotalOverflows() {
-			Reservation reservation = Reservation.create(
-					USER_ID,
-					EVENT_ID,
-					List.of(
-							createItem(
-									1L,
-									Integer.MAX_VALUE,
-									Long.MAX_VALUE
-							)
-					),
-					CREATED_AT,
-					EXPIRES_AT
-			);
-
-			assertThrows(
-					ArithmeticException.class,
-					reservation::getTotalAmount
-			);
-		}
-
-		@Test
-		void shouldThrowArithmeticExceptionWhenTotalAmountOverflows() {
-			// Each subtotal is within Long.MAX_VALUE,
-			// but their sum exceeds Long.MAX_VALUE.
-
+		void shouldCalculateLargeTotalAmountWithoutOverflow() {
 			long unitPrice = 999_999_999_999_999L;
-			int quantity = 9_000;
+			int quantity = Integer.MAX_VALUE;
 
 			Reservation reservation = Reservation.create(
 					USER_ID,
@@ -692,13 +667,12 @@ class ReservationTest {
 					EXPIRES_AT
 			);
 
-			assertThrows(
-					ArithmeticException.class,
-					reservation::getTotalAmount
+			assertAmountEquals(
+					"4294967293999995705032706",
+					reservation.getTotalAmount()
 			);
 		}
 	}
-
 
 	@Nested
 	class ConfirmTests {
@@ -794,7 +768,6 @@ class ReservationTest {
 		}
 	}
 
-
 	@Nested
 	class CancelTests {
 
@@ -889,7 +862,6 @@ class ReservationTest {
 		}
 	}
 
-
 	@Nested
 	class ExpireTests {
 
@@ -976,7 +948,6 @@ class ReservationTest {
 			);
 		}
 	}
-
 
 	@Nested
 	class StateConsistencyTests {
