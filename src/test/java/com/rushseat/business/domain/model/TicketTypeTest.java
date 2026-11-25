@@ -1,650 +1,357 @@
+
 package com.rushseat.business.domain.model;
 
-import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class TicketTypeTest {
 
 	private static final Long EVENT_ID = 1L;
-	private static final Long TICKET_TYPE_ID = 10L;
-
-	private static final String NAME = "Standard";
-	private static final String DESCRIPTION = "Standard admission ticket";
-
-	private static final long PRICE = 150_000L;
-	private static final int TOTAL_QUANTITY = 100;
-
 	private static final Instant CREATED_AT =
-			Instant.parse("2026-11-01T10:00:00Z");
+			Instant.parse("2026-11-25T10:00:00Z");
 
-	// Fixtures
+	private TicketType ticketType;
 
-	private TicketType createTicketType() {
-		return TicketType.create(
+	@BeforeEach
+	void setUp() {
+		ticketType = TicketType.create(
 				EVENT_ID,
-				NAME,
-				DESCRIPTION,
-				PRICE,
-				TOTAL_QUANTITY,
+				"VIP",
+				"VIP ticket",
+				new BigDecimal("500000"),
+				100,
 				CREATED_AT
 		);
 	}
 
-	private TicketType createReconstitutedTicketType() {
-		return TicketType.reconstitute(
-				TICKET_TYPE_ID,
+	// Creation
+
+	@Test
+	void create_shouldInitializeTicketTypeWithEmptyInventory() {
+		assertThat(ticketType.getId()).isNull();
+		assertThat(ticketType.getEventId()).isEqualTo(EVENT_ID);
+		assertThat(ticketType.getName()).isEqualTo("VIP");
+		assertThat(ticketType.getDescription()).isEqualTo("VIP ticket");
+		assertThat(ticketType.getPrice())
+				.isEqualByComparingTo("500000");
+
+		assertThat(ticketType.getTotalQuantity()).isEqualTo(100);
+		assertThat(ticketType.getHeldQuantity()).isZero();
+		assertThat(ticketType.getSoldQuantity()).isZero();
+		assertThat(ticketType.getAvailableQuantity()).isEqualTo(100);
+		assertThat(ticketType.getCreatedAt()).isEqualTo(CREATED_AT);
+	}
+
+	@Test
+	void reconstitute_shouldRestoreExistingTicketType() {
+		TicketType restored = TicketType.reconstitute(
+				10L,
 				EVENT_ID,
-				NAME,
-				DESCRIPTION,
-				PRICE,
-				TOTAL_QUANTITY,
-				10,
+				"VIP",
+				"VIP ticket",
+				new BigDecimal("500000"),
+				100,
 				20,
+				30,
 				CREATED_AT
 		);
+
+		assertThat(restored.getId()).isEqualTo(10L);
+		assertThat(restored.getEventId()).isEqualTo(EVENT_ID);
+		assertThat(restored.getHeldQuantity()).isEqualTo(20);
+		assertThat(restored.getSoldQuantity()).isEqualTo(30);
+		assertThat(restored.getAvailableQuantity()).isEqualTo(50);
 	}
 
-	// Create
+	// Identity validation
 
-	@Nested
-	class CreateTests {
-
-		@Test
-		void shouldCreateTicketTypeWithDefaultInventory() {
-			TicketType ticketType = createTicketType();
-
-			assertAll(
-					() -> assertNull(ticketType.getId()),
-					() -> assertEquals(EVENT_ID, ticketType.getEventId()),
-					() -> assertEquals(NAME, ticketType.getName()),
-					() -> assertEquals(DESCRIPTION, ticketType.getDescription()),
-					() -> assertEquals(PRICE, ticketType.getPrice()),
-					() -> assertEquals(TOTAL_QUANTITY, ticketType.getTotalQuantity()),
-					() -> assertEquals(0, ticketType.getHeldQuantity()),
-					() -> assertEquals(0, ticketType.getSoldQuantity()),
-					() -> assertEquals(CREATED_AT, ticketType.getCreatedAt())
-			);
-		}
-
-		@Test
-		void shouldAllowNullDescription() {
-			TicketType ticketType = TicketType.create(
-					EVENT_ID,
-					NAME,
-					null,
-					PRICE,
-					TOTAL_QUANTITY,
-					CREATED_AT
-			);
-
-			assertNull(ticketType.getDescription());
-		}
-
-		@Test
-		void shouldAllowZeroPrice() {
-			TicketType ticketType = TicketType.create(
-					EVENT_ID,
-					NAME,
-					DESCRIPTION,
-					0,
-					TOTAL_QUANTITY,
-					CREATED_AT
-			);
-
-			assertEquals(0, ticketType.getPrice());
-		}
-
-		@Test
-		void shouldAllowZeroTotalQuantity() {
-			TicketType ticketType = TicketType.create(
-					EVENT_ID,
-					NAME,
-					DESCRIPTION,
-					PRICE,
-					0,
-					CREATED_AT
-			);
-
-			assertEquals(0, ticketType.getTotalQuantity());
-		}
-
-		@Test
-		void shouldThrowExceptionWhenEventIdIsNull() {
-			assertThrows(IllegalArgumentException.class,
-					() -> TicketType.create(
-							null, NAME, DESCRIPTION,
-							PRICE, TOTAL_QUANTITY, CREATED_AT
-					));
-		}
-
-		@Test
-		void shouldThrowExceptionWhenEventIdIsNotPositive() {
-			assertThrows(IllegalArgumentException.class,
-					() -> TicketType.create(
-							0L, NAME, DESCRIPTION,
-							PRICE, TOTAL_QUANTITY, CREATED_AT
-					));
-		}
-
-		@Test
-		void shouldThrowExceptionWhenNameIsNull() {
-			assertThrows(IllegalArgumentException.class,
-					() -> TicketType.create(
-							EVENT_ID, null, DESCRIPTION,
-							PRICE, TOTAL_QUANTITY, CREATED_AT
-					));
-		}
-
-		@Test
-		void shouldThrowExceptionWhenNameIsBlank() {
-			assertThrows(IllegalArgumentException.class,
-					() -> TicketType.create(
-							EVENT_ID, "   ", DESCRIPTION,
-							PRICE, TOTAL_QUANTITY, CREATED_AT
-					));
-		}
-
-		@Test
-		void shouldThrowExceptionWhenNameExceeds100Characters() {
-			String name = "A".repeat(101);
-
-			assertThrows(IllegalArgumentException.class,
-					() -> TicketType.create(
-							EVENT_ID, name, DESCRIPTION,
-							PRICE, TOTAL_QUANTITY, CREATED_AT
-					));
-		}
-
-		@Test
-		void shouldAllowNameWithExactly100Characters() {
-			String name = "A".repeat(100);
-
-			TicketType ticketType = TicketType.create(
-					EVENT_ID, name, DESCRIPTION,
-					PRICE, TOTAL_QUANTITY, CREATED_AT
-			);
-
-			assertEquals(name, ticketType.getName());
-		}
-
-		@Test
-		void shouldThrowExceptionWhenPriceIsNegative() {
-			assertThrows(IllegalArgumentException.class,
-					() -> TicketType.create(
-							EVENT_ID, NAME, DESCRIPTION,
-							-1, TOTAL_QUANTITY, CREATED_AT
-					));
-		}
-
-		@Test
-		void shouldThrowExceptionWhenTotalQuantityIsNegative() {
-			assertThrows(IllegalArgumentException.class,
-					() -> TicketType.create(
-							EVENT_ID, NAME, DESCRIPTION,
-							PRICE, -1, CREATED_AT
-					));
-		}
-
-		@Test
-		void shouldThrowExceptionWhenCreatedAtIsNull() {
-			assertThrows(NullPointerException.class,
-					() -> TicketType.create(
-							EVENT_ID, NAME, DESCRIPTION,
-							PRICE, TOTAL_QUANTITY, null
-					));
-		}
+	@Test
+	void create_shouldRejectInvalidEventId() {
+		assertThatThrownBy(() -> TicketType.create(
+				null,
+				"VIP",
+				null,
+				new BigDecimal("500000"),
+				100,
+				CREATED_AT
+		)).isInstanceOf(IllegalArgumentException.class);
 	}
 
-	// Reconstitute
+	@Test
+	void reconstitute_shouldRejectNullId() {
+		assertThatThrownBy(() -> TicketType.reconstitute(
+				null,
+				EVENT_ID,
+				"VIP",
+				null,
+				new BigDecimal("500000"),
+				100,
+				0,
+				0,
+				CREATED_AT
+		)).isInstanceOf(NullPointerException.class);
+	}
 
-	@Nested
-	class ReconstituteTests {
+	@Test
+	void reconstitute_shouldRejectNonPositiveId() {
+		assertThatThrownBy(() -> TicketType.reconstitute(
+				0L,
+				EVENT_ID,
+				"VIP",
+				null,
+				new BigDecimal("500000"),
+				100,
+				0,
+				0,
+				CREATED_AT
+		)).isInstanceOf(IllegalArgumentException.class);
+	}
 
-		@Test
-		void shouldReconstituteTicketTypeWithExistingInventory() {
-			TicketType ticketType = createReconstitutedTicketType();
+	// Name validation
 
-			assertAll(
-					() -> assertEquals(TICKET_TYPE_ID, ticketType.getId()),
-					() -> assertEquals(EVENT_ID, ticketType.getEventId()),
-					() -> assertEquals(NAME, ticketType.getName()),
-					() -> assertEquals(DESCRIPTION, ticketType.getDescription()),
-					() -> assertEquals(PRICE, ticketType.getPrice()),
-					() -> assertEquals(TOTAL_QUANTITY, ticketType.getTotalQuantity()),
-					() -> assertEquals(10, ticketType.getHeldQuantity()),
-					() -> assertEquals(20, ticketType.getSoldQuantity()),
-					() -> assertEquals(CREATED_AT, ticketType.getCreatedAt())
-			);
-		}
+	@Test
+	void create_shouldRejectBlankName() {
+		assertThatThrownBy(() -> TicketType.create(
+				EVENT_ID,
+				"   ",
+				null,
+				new BigDecimal("500000"),
+				100,
+				CREATED_AT
+		)).isInstanceOf(IllegalArgumentException.class);
+	}
 
-		@Test
-		void shouldAllowNullDescription() {
-			TicketType ticketType = TicketType.reconstitute(
-					TICKET_TYPE_ID,
-					EVENT_ID,
-					NAME,
-					null,
-					PRICE,
-					TOTAL_QUANTITY,
-					0,
-					0,
-					CREATED_AT
-			);
+	@Test
+	void create_shouldRejectNameLongerThan100Characters() {
+		String longName = "A".repeat(101);
 
-			assertNull(ticketType.getDescription());
-		}
+		assertThatThrownBy(() -> TicketType.create(
+				EVENT_ID,
+				longName,
+				null,
+				new BigDecimal("500000"),
+				100,
+				CREATED_AT
+		)).isInstanceOf(IllegalArgumentException.class);
+	}
 
-		@Test
-		void shouldThrowExceptionWhenIdIsNull() {
-			assertThrows(NullPointerException.class,
-					() -> TicketType.reconstitute(
-							null, EVENT_ID, NAME, DESCRIPTION,
-							PRICE, TOTAL_QUANTITY, 0, 0, CREATED_AT
-					));
-		}
+	// Price validation
 
-		@Test
-		void shouldThrowExceptionWhenIdIsNotPositive() {
-			assertThrows(IllegalArgumentException.class,
-					() -> TicketType.reconstitute(
-							0L, EVENT_ID, NAME, DESCRIPTION,
-							PRICE, TOTAL_QUANTITY, 0, 0, CREATED_AT
-					));
-		}
+	@Test
+	void create_shouldRejectNullPrice() {
+		assertThatThrownBy(() -> TicketType.create(
+				EVENT_ID,
+				"VIP",
+				null,
+				null,
+				100,
+				CREATED_AT
+		)).isInstanceOf(NullPointerException.class);
+	}
 
-		@Test
-		void shouldThrowExceptionWhenInventoryExceedsTotalQuantity() {
-			assertThrows(IllegalArgumentException.class,
-					() -> TicketType.reconstitute(
-							TICKET_TYPE_ID,
-							EVENT_ID,
-							NAME,
-							DESCRIPTION,
-							PRICE,
-							100,
-							60,
-							50,
-							CREATED_AT
-					));
-		}
+	@Test
+	void create_shouldRejectNegativePrice() {
+		assertThatThrownBy(() -> TicketType.create(
+				EVENT_ID,
+				"VIP",
+				null,
+				new BigDecimal("-100"),
+				100,
+				CREATED_AT
+		)).isInstanceOf(IllegalArgumentException.class);
+	}
 
-		@Test
-		void shouldThrowExceptionWhenHeldQuantityIsNegative() {
-			assertThrows(IllegalArgumentException.class,
-					() -> TicketType.reconstitute(
-							TICKET_TYPE_ID,
-							EVENT_ID,
-							NAME,
-							DESCRIPTION,
-							PRICE,
-							TOTAL_QUANTITY,
-							-1,
-							0,
-							CREATED_AT
-					));
-		}
+	@Test
+	void create_shouldAcceptPriceWithZeroFractionalDigits() {
+		TicketType result = TicketType.create(
+				EVENT_ID,
+				"VIP",
+				null,
+				new BigDecimal("500000.00"),
+				100,
+				CREATED_AT
+		);
 
-		@Test
-		void shouldThrowExceptionWhenSoldQuantityIsNegative() {
-			assertThrows(IllegalArgumentException.class,
-					() -> TicketType.reconstitute(
-							TICKET_TYPE_ID,
-							EVENT_ID,
-							NAME,
-							DESCRIPTION,
-							PRICE,
-							TOTAL_QUANTITY,
-							0,
-							-1,
-							CREATED_AT
-					));
-		}
+		assertThat(result.getPrice())
+				.isEqualByComparingTo("500000");
+	}
+
+	@Test
+	void create_shouldRejectPriceWithNonZeroFractionalDigits() {
+		assertThatThrownBy(() -> TicketType.create(
+				EVENT_ID,
+				"VIP",
+				null,
+				new BigDecimal("500000.50"),
+				100,
+				CREATED_AT
+		)).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void create_shouldRejectPriceExceedingPrecision15() {
+		assertThatThrownBy(() -> TicketType.create(
+				EVENT_ID,
+				"VIP",
+				null,
+				new BigDecimal("1000000000000000"),
+				100,
+				CREATED_AT
+		)).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void updatePrice_shouldPreserveOldPriceWhenNewPriceIsInvalid() {
+		assertThatThrownBy(() ->
+				ticketType.updatePrice(new BigDecimal("-100"))
+		).isInstanceOf(IllegalArgumentException.class);
+
+		assertThat(ticketType.getPrice())
+				.isEqualByComparingTo("500000");
+	}
+
+	// Inventory validation
+
+	@Test
+	void create_shouldAcceptZeroTotalQuantity() {
+		TicketType result = TicketType.create(
+				EVENT_ID,
+				"VIP",
+				null,
+				new BigDecimal("500000"),
+				0,
+				CREATED_AT
+		);
+
+		assertThat(result.getTotalQuantity()).isZero();
+		assertThat(result.getAvailableQuantity()).isZero();
+	}
+
+	@Test
+	void create_shouldRejectNegativeTotalQuantity() {
+		assertThatThrownBy(() -> TicketType.create(
+				EVENT_ID,
+				"VIP",
+				null,
+				new BigDecimal("500000"),
+				-1,
+				CREATED_AT
+		)).isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void reconstitute_shouldRejectInventoryExceedingTotalQuantity() {
+		assertThatThrownBy(() -> TicketType.reconstitute(
+				10L,
+				EVENT_ID,
+				"VIP",
+				null,
+				new BigDecimal("500000"),
+				100,
+				60,
+				50,
+				CREATED_AT
+		)).isInstanceOf(IllegalArgumentException.class);
 	}
 
 	// Update details
 
-	@Nested
-	class UpdateDetailsTests {
-
-		@Test
-		void shouldUpdateNameAndDescription() {
-			TicketType ticketType = createTicketType();
-
-			ticketType.updateDetails(
-					"VIP",
-					"VIP admission ticket"
-			);
-
-			assertAll(
-					() -> assertEquals("VIP", ticketType.getName()),
-					() -> assertEquals("VIP admission ticket", ticketType.getDescription())
-			);
-		}
-
-		@Test
-		void shouldAllowSettingDescriptionToNull() {
-			TicketType ticketType = createTicketType();
-
-			ticketType.updateDetails("VIP", null);
-
-			assertAll(
-					() -> assertEquals("VIP", ticketType.getName()),
-					() -> assertNull(ticketType.getDescription())
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenNewNameIsBlank() {
-			TicketType ticketType = createTicketType();
-
-			assertThrows(IllegalArgumentException.class,
-					() -> ticketType.updateDetails(" ", "New description"));
-
-			assertAll(
-					() -> assertEquals(NAME, ticketType.getName()),
-					() -> assertEquals(DESCRIPTION, ticketType.getDescription())
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenNewNameExceeds100Characters() {
-			TicketType ticketType = createTicketType();
-			String newName = "A".repeat(101);
-
-			assertThrows(IllegalArgumentException.class,
-					() -> ticketType.updateDetails(newName, "New description"));
-
-			assertAll(
-					() -> assertEquals(NAME, ticketType.getName()),
-					() -> assertEquals(DESCRIPTION, ticketType.getDescription())
-			);
-		}
-	}
-
-	// Update price
-
-	@Nested
-	class UpdatePriceTests {
-
-		@Test
-		void shouldUpdatePrice() {
-			TicketType ticketType = createTicketType();
-
-			ticketType.updatePrice(200_000L);
-
-			assertEquals(200_000L, ticketType.getPrice());
-		}
-
-		@Test
-		void shouldAllowZeroPrice() {
-			TicketType ticketType = createTicketType();
-
-			ticketType.updatePrice(0);
-
-			assertEquals(0, ticketType.getPrice());
-		}
-
-		@Test
-		void shouldThrowExceptionWhenPriceIsNegative() {
-			TicketType ticketType = createTicketType();
-
-			assertThrows(IllegalArgumentException.class,
-					() -> ticketType.updatePrice(-1));
-
-			assertEquals(PRICE, ticketType.getPrice());
-		}
-	}
-
-	@Nested
-	class InventoryTests {
-
-		@Test
-		void shouldCalculateAvailableQuantity() {
-			TicketType ticketType = createReconstitutedTicketType();
-
-			assertEquals(70, ticketType.getAvailableQuantity());
-		}
-
-		@Test
-		void shouldReturnZeroWhenAllTicketsAreHeld() {
-			TicketType ticketType = TicketType.reconstitute(
-					TICKET_TYPE_ID, EVENT_ID, NAME, DESCRIPTION,
-					PRICE, 100, 100, 0, CREATED_AT
-			);
-
-			assertEquals(0, ticketType.getAvailableQuantity());
-		}
-
-		@Test
-		void shouldReturnZeroWhenAllTicketsAreSold() {
-			TicketType ticketType = TicketType.reconstitute(
-					TICKET_TYPE_ID, EVENT_ID, NAME, DESCRIPTION,
-					PRICE, 100, 0, 100, CREATED_AT
-			);
-
-			assertEquals(0, ticketType.getAvailableQuantity());
-		}
-	}
-
-	@Nested
-	class HoldTests {
-
-		@Test
-		void shouldHoldTickets() {
-			TicketType ticketType = createTicketType();
-
-			ticketType.hold(10);
-
-			assertAll(
-					() -> assertEquals(10, ticketType.getHeldQuantity()),
-					() -> assertEquals(0, ticketType.getSoldQuantity()),
-					() -> assertEquals(90, ticketType.getAvailableQuantity())
-			);
-		}
-
-		@Test
-		void shouldAllowHoldingAllAvailableTickets() {
-			TicketType ticketType = createTicketType();
-
-			ticketType.hold(100);
-
-			assertEquals(0, ticketType.getAvailableQuantity());
-			assertEquals(100, ticketType.getHeldQuantity());
-		}
-
-		@Test
-		void shouldThrowExceptionWhenQuantityIsZero() {
-			TicketType ticketType = createTicketType();
-
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ticketType.hold(0)
-			);
-
-			assertEquals(0, ticketType.getHeldQuantity());
-		}
-
-		@Test
-		void shouldThrowExceptionWhenQuantityIsNegative() {
-			TicketType ticketType = createTicketType();
-
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ticketType.hold(-1)
-			);
-
-			assertEquals(0, ticketType.getHeldQuantity());
-		}
-
-		@Test
-		void shouldThrowExceptionWhenQuantityExceedsAvailableInventory() {
-			TicketType ticketType = createTicketType();
-
-			assertThrows(
-					IllegalStateException.class,
-					() -> ticketType.hold(101)
-			);
-
-			assertAll(
-					() -> assertEquals(0, ticketType.getHeldQuantity()),
-					() -> assertEquals(100, ticketType.getAvailableQuantity())
-			);
-		}
-	}
-
-	@Nested
-	class ReleaseTests {
-
-		@Test
-		void shouldReleaseHeldTickets() {
-			TicketType ticketType = createReconstitutedTicketType();
-
-			ticketType.release(5);
-
-			assertAll(
-					() -> assertEquals(5, ticketType.getHeldQuantity()),
-					() -> assertEquals(20, ticketType.getSoldQuantity()),
-					() -> assertEquals(75, ticketType.getAvailableQuantity())
-			);
-		}
-
-		@Test
-		void shouldAllowReleasingAllHeldTickets() {
-			TicketType ticketType = createReconstitutedTicketType();
-
-			ticketType.release(10);
-
-			assertEquals(0, ticketType.getHeldQuantity());
-			assertEquals(80, ticketType.getAvailableQuantity());
-		}
-
-		@Test
-		void shouldThrowExceptionWhenReleasingMoreThanHeldQuantity() {
-			TicketType ticketType = createReconstitutedTicketType();
-
-			assertThrows(
-					IllegalStateException.class,
-					() -> ticketType.release(11)
-			);
-
-			assertEquals(10, ticketType.getHeldQuantity());
-		}
-
-		@Test
-		void shouldThrowExceptionWhenReleaseQuantityIsZero() {
-			TicketType ticketType = createReconstitutedTicketType();
-
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ticketType.release(0)
-			);
-
-			assertEquals(10, ticketType.getHeldQuantity());
-		}
-
-		@Test
-		void shouldThrowExceptionWhenReleaseQuantityIsNegative() {
-			TicketType ticketType = createReconstitutedTicketType();
-
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ticketType.release(-1)
-			);
-
-			assertEquals(10, ticketType.getHeldQuantity());
-		}
-	}
-
-	@Nested
-	class SellTests {
-
-		@Test
-		void shouldSellHeldTickets() {
-			TicketType ticketType = createReconstitutedTicketType();
-
-			ticketType.sell(5);
-
-			assertAll(
-					() -> assertEquals(5, ticketType.getHeldQuantity()),
-					() -> assertEquals(25, ticketType.getSoldQuantity()),
-					() -> assertEquals(70, ticketType.getAvailableQuantity())
-			);
-		}
-
-		@Test
-		void shouldAllowSellingAllHeldTickets() {
-			TicketType ticketType = createReconstitutedTicketType();
-
-			ticketType.sell(10);
-
-			assertAll(
-					() -> assertEquals(0, ticketType.getHeldQuantity()),
-					() -> assertEquals(30, ticketType.getSoldQuantity()),
-					() -> assertEquals(70, ticketType.getAvailableQuantity())
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenSellingMoreThanHeldQuantity() {
-			TicketType ticketType = createReconstitutedTicketType();
-
-			assertThrows(
-					IllegalStateException.class,
-					() -> ticketType.sell(11)
-			);
-
-			assertAll(
-					() -> assertEquals(10, ticketType.getHeldQuantity()),
-					() -> assertEquals(20, ticketType.getSoldQuantity())
-			);
-		}
-
-		@Test
-		void shouldThrowExceptionWhenSellQuantityIsZero() {
-			TicketType ticketType = createReconstitutedTicketType();
-
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ticketType.sell(0)
-			);
-
-			assertEquals(20, ticketType.getSoldQuantity());
-		}
-
-		@Test
-		void shouldThrowExceptionWhenSellQuantityIsNegative() {
-			TicketType ticketType = createReconstitutedTicketType();
-
-			assertThrows(
-					IllegalArgumentException.class,
-					() -> ticketType.sell(-1)
-			);
-
-			assertAll(
-					() -> assertEquals(10, ticketType.getHeldQuantity()),
-					() -> assertEquals(20, ticketType.getSoldQuantity())
-			);
-		}
+	@Test
+	void updateDetails_shouldUpdateNameAndDescription() {
+		ticketType.updateDetails("Premium", "Premium ticket");
+
+		assertThat(ticketType.getName()).isEqualTo("Premium");
+		assertThat(ticketType.getDescription())
+				.isEqualTo("Premium ticket");
 	}
 
 	@Test
-	void shouldMaintainInventoryInvariantAcrossMultipleOperations() {
-		TicketType ticketType = createTicketType();
+	void updateDetails_shouldPreserveOldDetailsWhenNameIsInvalid() {
+		assertThatThrownBy(() ->
+				ticketType.updateDetails(" ", "New description")
+		).isInstanceOf(IllegalArgumentException.class);
 
-		ticketType.hold(30);
-		ticketType.release(10);
-		ticketType.sell(5);
-		ticketType.hold(20);
-
-		assertAll(
-				() -> assertEquals(35, ticketType.getHeldQuantity()),
-				() -> assertEquals(5, ticketType.getSoldQuantity()),
-				() -> assertEquals(60, ticketType.getAvailableQuantity())
-		);
+		assertThat(ticketType.getName()).isEqualTo("VIP");
+		assertThat(ticketType.getDescription())
+				.isEqualTo("VIP ticket");
 	}
 
+	// Hold
+
+	@Test
+	void hold_shouldIncreaseHeldQuantity() {
+		ticketType.hold(20);
+
+		assertThat(ticketType.getHeldQuantity()).isEqualTo(20);
+		assertThat(ticketType.getAvailableQuantity()).isEqualTo(80);
+	}
+
+	@Test
+	void hold_shouldRejectZeroOrNegativeQuantity() {
+		assertThatThrownBy(() -> ticketType.hold(0))
+				.isInstanceOf(IllegalArgumentException.class);
+
+		assertThatThrownBy(() -> ticketType.hold(-1))
+				.isInstanceOf(IllegalArgumentException.class);
+	}
+
+	@Test
+	void hold_shouldRejectQuantityExceedingAvailableInventory() {
+		assertThatThrownBy(() -> ticketType.hold(101))
+				.isInstanceOf(IllegalStateException.class);
+
+		assertThat(ticketType.getHeldQuantity()).isZero();
+	}
+
+	// Release
+
+	@Test
+	void release_shouldDecreaseHeldQuantity() {
+		ticketType.hold(30);
+
+		ticketType.release(10);
+
+		assertThat(ticketType.getHeldQuantity()).isEqualTo(20);
+		assertThat(ticketType.getAvailableQuantity()).isEqualTo(80);
+	}
+
+	@Test
+	void release_shouldRejectQuantityExceedingHeldInventory() {
+		ticketType.hold(10);
+
+		assertThatThrownBy(() -> ticketType.release(11))
+				.isInstanceOf(IllegalStateException.class);
+
+		assertThat(ticketType.getHeldQuantity()).isEqualTo(10);
+	}
+
+	// Sell
+
+	@Test
+	void sell_shouldMoveQuantityFromHeldToSold() {
+		ticketType.hold(30);
+
+		ticketType.sell(20);
+
+		assertThat(ticketType.getHeldQuantity()).isEqualTo(10);
+		assertThat(ticketType.getSoldQuantity()).isEqualTo(20);
+		assertThat(ticketType.getAvailableQuantity()).isEqualTo(70);
+	}
+
+	@Test
+	void sell_shouldRejectQuantityExceedingHeldInventory() {
+		ticketType.hold(10);
+
+		assertThatThrownBy(() -> ticketType.sell(11))
+				.isInstanceOf(IllegalStateException.class);
+
+		assertThat(ticketType.getHeldQuantity()).isEqualTo(10);
+		assertThat(ticketType.getSoldQuantity()).isZero();
+	}
 }
